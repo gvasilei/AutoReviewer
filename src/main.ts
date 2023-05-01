@@ -1,21 +1,15 @@
 import { config } from 'dotenv'
 import * as core from '@actions/core'
 import { wait } from './wait'
-//import { ChatOpenAI } from 'langchain/chat_models/openai'
-/*import {
+import { ChatOpenAI } from 'langchain/chat_models/openai'
+import {
   ChatPromptTemplate,
   HumanMessagePromptTemplate,
   SystemMessagePromptTemplate
 } from 'langchain/prompts'
 import { LLMChain } from 'langchain/chains'
-*/
 
 config()
-
-/*const model = new ChatOpenAI({
-  temperature: 0,
-  modelName: 'gpt-4'
-})*/
 
 const run = async (): Promise<void> => {
   const repoPath = process.env['GITHUB_WORKSPACE'] || ''
@@ -23,20 +17,27 @@ const run = async (): Promise<void> => {
   const event_name = process.env['GITHUB_EVENT_NAME'] || ''
   const event_path = process.env['GITHUB_EVENT_PATH'] || ''
 
+  const model = new ChatOpenAI({
+    temperature: 0,
+    modelName: 'gpt-4'
+  })
+
   try {
     core.info(`${repoPath} ${runId} ${event_name} ${event_path}`)
 
     // We can also construct an LLMChain from a ChatPromptTemplate and a chat model.
-    /*const chatPrompt = ChatPromptTemplate.fromPromptMessages([
+    const chatPrompt = ChatPromptTemplate.fromPromptMessages([
       SystemMessagePromptTemplate.fromTemplate(
         'You are a helpful assistant that translates {input_language} to {output_language}.'
       ),
       HumanMessagePromptTemplate.fromTemplate('{text}')
     ])
+
     const chainB = new LLMChain({
       prompt: chatPrompt,
       llm: model
     })
+    /*
     const resB = await chainB.run({
       input_language: 'English',
       output_language: 'French',
