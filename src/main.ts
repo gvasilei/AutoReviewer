@@ -37,14 +37,14 @@ const run = async (): Promise<void> => {
       prompt: chatPrompt,
       llm: model
     })
-    /*
+
     const resB = await chainB.run({
       input_language: 'English',
       output_language: 'French',
       text: 'I love programming.'
     })
 
-    core.info(resB)*/
+    core.info(resB)
 
     const ms: string = core.getInput('milliseconds')
     core.info(`Waiting ${ms} milliseconds ...`) // debug is only output if you set the secret `ACTIONS_STEP_DEBUG` to true

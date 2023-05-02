@@ -66,14 +66,12 @@ const run = () => __awaiter(void 0, void 0, void 0, function* () {
             prompt: chatPrompt,
             llm: model
         });
-        /*
-        const resB = await chainB.run({
-          input_language: 'English',
-          output_language: 'French',
-          text: 'I love programming.'
-        })
-    
-        core.info(resB)*/
+        const resB = yield chainB.run({
+            input_language: 'English',
+            output_language: 'French',
+            text: 'I love programming.'
+        });
+        core.info(resB);
         const ms = core.getInput('milliseconds');
         core.info(`Waiting ${ms} milliseconds ...`); // debug is only output if you set the secret `ACTIONS_STEP_DEBUG` to true
         core.info(new Date().toTimeString());
