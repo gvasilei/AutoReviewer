@@ -51,12 +51,14 @@ const run = () => __awaiter(void 0, void 0, void 0, function* () {
     const runId = process.env['GITHUB_RUN_ID'] || '';
     const event_name = process.env['GITHUB_EVENT_NAME'] || '';
     const event_path = process.env['GITHUB_EVENT_PATH'] || '';
+    const openAIApiKey = process.env['OPENAI_API_KEY'] || '';
     const model = new openai_1.ChatOpenAI({
         temperature: 0,
-        modelName: 'gpt-4'
+        modelName: 'gpt-4',
+        openAIApiKey
     });
     try {
-        core.info(`${repoPath} ${runId} ${event_name} ${event_path}`);
+        core.info(`${repoPath} ${runId} ${event_name} ${event_path} ${openAIApiKey}`);
         // We can also construct an LLMChain from a ChatPromptTemplate and a chat model.
         const chatPrompt = prompts_1.ChatPromptTemplate.fromPromptMessages([
             prompts_1.SystemMessagePromptTemplate.fromTemplate('You are a helpful assistant that translates {input_language} to {output_language}.'),

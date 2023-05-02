@@ -16,14 +16,18 @@ const run = async (): Promise<void> => {
   const runId = process.env['GITHUB_RUN_ID'] || ''
   const event_name = process.env['GITHUB_EVENT_NAME'] || ''
   const event_path = process.env['GITHUB_EVENT_PATH'] || ''
+  const openAIApiKey = process.env['OPENAI_API_KEY'] || ''
 
   const model = new ChatOpenAI({
     temperature: 0,
-    modelName: 'gpt-4'
+    modelName: 'gpt-4',
+    openAIApiKey
   })
 
   try {
-    core.info(`${repoPath} ${runId} ${event_name} ${event_path}`)
+    core.info(
+      `${repoPath} ${runId} ${event_name} ${event_path} ${openAIApiKey}`
+    )
 
     // We can also construct an LLMChain from a ChatPromptTemplate and a chat model.
     const chatPrompt = ChatPromptTemplate.fromPromptMessages([
