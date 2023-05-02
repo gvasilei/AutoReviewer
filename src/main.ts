@@ -1,6 +1,3 @@
-import fetch, { Headers, Request, Response } from 'node-fetch'
-
-
 import 'core-js/actual/structured-clone'
 import { config } from 'dotenv'
 import * as core from '@actions/core'
@@ -12,10 +9,6 @@ import {
   SystemMessagePromptTemplate
 } from 'langchain/prompts'
 import { LLMChain } from 'langchain/chains'
-
-if (!globalThis.fetch) {
-  globalThis.Headers = Headers
-}
 
 config()
 

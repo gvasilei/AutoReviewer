@@ -22,5 +22,6 @@ jobs:
       - uses: ./
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          NODE_OPTIONS: '--experimental-fetch'
         with:
           milliseconds: 1000
