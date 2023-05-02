@@ -33,18 +33,18 @@ const run = async (): Promise<void> => {
       HumanMessagePromptTemplate.fromTemplate('{text}')
     ])
 
-    const chainB = new LLMChain({
+    const chain = new LLMChain({
       prompt: chatPrompt,
       llm: model
     })
 
-    const resB = await chainB.run({
+    const res = await chain.call({
       input_language: 'English',
       output_language: 'French',
       text: 'I love programming.'
     })
 
-    core.info(resB)
+    core.info(res.toString())
 
     const ms: string = core.getInput('milliseconds')
     core.info(`Waiting ${ms} milliseconds ...`) // debug is only output if you set the secret `ACTIONS_STEP_DEBUG` to true

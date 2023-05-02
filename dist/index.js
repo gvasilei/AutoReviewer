@@ -62,16 +62,16 @@ const run = () => __awaiter(void 0, void 0, void 0, function* () {
             prompts_1.SystemMessagePromptTemplate.fromTemplate('You are a helpful assistant that translates {input_language} to {output_language}.'),
             prompts_1.HumanMessagePromptTemplate.fromTemplate('{text}')
         ]);
-        const chainB = new chains_1.LLMChain({
+        const chain = new chains_1.LLMChain({
             prompt: chatPrompt,
             llm: model
         });
-        const resB = yield chainB.run({
+        const res = yield chain.call({
             input_language: 'English',
             output_language: 'French',
             text: 'I love programming.'
         });
-        core.info(resB);
+        core.info(res.toString());
         const ms = core.getInput('milliseconds');
         core.info(`Waiting ${ms} milliseconds ...`); // debug is only output if you set the secret `ACTIONS_STEP_DEBUG` to true
         core.info(new Date().toTimeString());
