@@ -25,9 +25,7 @@ const run = async (): Promise<void> => {
   })
 
   try {
-    core.info(
-      `${repoPath} ${runId} ${event_name} ${event_path} ${openAIApiKey}`
-    )
+    core.info(`${repoPath} ${runId} ${event_name} ${event_path}`)
 
     // We can also construct an LLMChain from a ChatPromptTemplate and a chat model.
     const chatPrompt = ChatPromptTemplate.fromPromptMessages([

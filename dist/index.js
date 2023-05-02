@@ -58,7 +58,7 @@ const run = () => __awaiter(void 0, void 0, void 0, function* () {
         openAIApiKey
     });
     try {
-        core.info(`${repoPath} ${runId} ${event_name} ${event_path} ${openAIApiKey}`);
+        core.info(`${repoPath} ${runId} ${event_name} ${event_path}`);
         // We can also construct an LLMChain from a ChatPromptTemplate and a chat model.
         const chatPrompt = prompts_1.ChatPromptTemplate.fromPromptMessages([
             prompts_1.SystemMessagePromptTemplate.fromTemplate('You are a helpful assistant that translates {input_language} to {output_language}.'),
@@ -14663,6 +14663,7 @@ const qa_template = `Use the following pieces of context to answer the question 
 
 Question: {question}
 Helpful Answer:`;
+/** @deprecated use `ConversationalRetrievalQAChain` instead. */
 class ChatVectorDBQAChain extends base_js_1.BaseChain {
     get inputKeys() {
         return [this.inputKey, this.chatHistoryKey];
@@ -14793,13 +14794,14 @@ class ChatVectorDBQAChain extends base_js_1.BaseChain {
         };
     }
     static fromLLM(llm, vectorstore, options = {}) {
-        const { questionGeneratorTemplate, qaTemplate, ...rest } = options;
+        const { questionGeneratorTemplate, qaTemplate, verbose, ...rest } = options;
         const question_generator_prompt = prompt_js_1.PromptTemplate.fromTemplate(questionGeneratorTemplate || question_generator_template);
         const qa_prompt = prompt_js_1.PromptTemplate.fromTemplate(qaTemplate || qa_template);
-        const qaChain = (0, load_js_1.loadQAStuffChain)(llm, { prompt: qa_prompt });
+        const qaChain = (0, load_js_1.loadQAStuffChain)(llm, { prompt: qa_prompt, verbose });
         const questionGeneratorChain = new llm_chain_js_1.LLMChain({
             prompt: question_generator_prompt,
             llm,
+            verbose,
         });
         const instance = new this({
             vectorstore,
@@ -15331,18 +15333,20 @@ class ConversationalRetrievalQAChain extends base_js_1.BaseChain {
         throw new Error("Not implemented.");
     }
     static fromLLM(llm, retriever, options = {}) {
-        const { questionGeneratorTemplate, qaTemplate, ...rest } = options;
+        const { questionGeneratorTemplate, qaTemplate, verbose, ...rest } = options;
         const question_generator_prompt = prompt_js_1.PromptTemplate.fromTemplate(questionGeneratorTemplate || question_generator_template);
         const qa_prompt = prompt_js_1.PromptTemplate.fromTemplate(qaTemplate || qa_template);
-        const qaChain = (0, load_js_1.loadQAStuffChain)(llm, { prompt: qa_prompt });
+        const qaChain = (0, load_js_1.loadQAStuffChain)(llm, { prompt: qa_prompt, verbose });
         const questionGeneratorChain = new llm_chain_js_1.LLMChain({
             prompt: question_generator_prompt,
             llm,
+            verbose,
         });
         const instance = new this({
             retriever,
             combineDocumentsChain: qaChain,
             questionGeneratorChain,
+            verbose,
             ...rest,
         });
         return instance;
@@ -15595,15 +15599,19 @@ const stuff_prompts_js_1 = __nccwpck_require__(5521);
 const map_reduce_prompts_js_1 = __nccwpck_require__(2530);
 const refine_prompts_js_1 = __nccwpck_require__(3125);
 const loadQAChain = (llm, params = {}) => {
-    const { prompt = stuff_prompts_js_1.DEFAULT_QA_PROMPT, combineMapPrompt = map_reduce_prompts_js_1.DEFAULT_COMBINE_QA_PROMPT, combinePrompt = map_reduce_prompts_js_1.COMBINE_PROMPT, type = "stuff", } = params;
+    const { prompt = stuff_prompts_js_1.DEFAULT_QA_PROMPT, combineMapPrompt = map_reduce_prompts_js_1.DEFAULT_COMBINE_QA_PROMPT, combinePrompt = map_reduce_prompts_js_1.COMBINE_PROMPT, type = "stuff", verbose, } = params;
     if (type === "stuff") {
-        const llmChain = new llm_chain_js_1.LLMChain({ prompt, llm });
+        const llmChain = new llm_chain_js_1.LLMChain({ prompt, llm, verbose });
         const chain = new combine_docs_chain_js_1.StuffDocumentsChain({ llmChain });
         return chain;
     }
     if (type === "map_reduce") {
-        const llmChain = new llm_chain_js_1.LLMChain({ prompt: combineMapPrompt, llm });
-        const combineLLMChain = new llm_chain_js_1.LLMChain({ prompt: combinePrompt, llm });
+        const llmChain = new llm_chain_js_1.LLMChain({ prompt: combineMapPrompt, llm, verbose });
+        const combineLLMChain = new llm_chain_js_1.LLMChain({
+            prompt: combinePrompt,
+            llm,
+            verbose,
+        });
         const combineDocumentChain = new combine_docs_chain_js_1.StuffDocumentsChain({
             llmChain: combineLLMChain,
             documentVariableName: "summaries",
@@ -15616,8 +15624,8 @@ const loadQAChain = (llm, params = {}) => {
     }
     if (type === "refine") {
         const { questionPrompt = refine_prompts_js_1.QUESTION_PROMPT_SELECTOR.getPrompt(llm), refinePrompt = refine_prompts_js_1.REFINE_PROMPT_SELECTOR.getPrompt(llm), } = params;
-        const llmChain = new llm_chain_js_1.LLMChain({ prompt: questionPrompt, llm });
-        const refineLLMChain = new llm_chain_js_1.LLMChain({ prompt: refinePrompt, llm });
+        const llmChain = new llm_chain_js_1.LLMChain({ prompt: questionPrompt, llm, verbose });
+        const refineLLMChain = new llm_chain_js_1.LLMChain({ prompt: refinePrompt, llm, verbose });
         const chain = new combine_docs_chain_js_1.RefineDocumentsChain({
             llmChain,
             refineLLMChain,
@@ -15628,16 +15636,16 @@ const loadQAChain = (llm, params = {}) => {
 };
 exports.loadQAChain = loadQAChain;
 const loadQAStuffChain = (llm, params = {}) => {
-    const { prompt = stuff_prompts_js_1.QA_PROMPT_SELECTOR.getPrompt(llm) } = params;
-    const llmChain = new llm_chain_js_1.LLMChain({ prompt, llm });
+    const { prompt = stuff_prompts_js_1.QA_PROMPT_SELECTOR.getPrompt(llm), verbose } = params;
+    const llmChain = new llm_chain_js_1.LLMChain({ prompt, llm, verbose });
     const chain = new combine_docs_chain_js_1.StuffDocumentsChain({ llmChain });
     return chain;
 };
 exports.loadQAStuffChain = loadQAStuffChain;
 const loadQAMapReduceChain = (llm, params = {}) => {
-    const { combineMapPrompt = map_reduce_prompts_js_1.COMBINE_QA_PROMPT_SELECTOR.getPrompt(llm), combinePrompt = map_reduce_prompts_js_1.COMBINE_PROMPT_SELECTOR.getPrompt(llm), } = params;
-    const llmChain = new llm_chain_js_1.LLMChain({ prompt: combineMapPrompt, llm });
-    const combineLLMChain = new llm_chain_js_1.LLMChain({ prompt: combinePrompt, llm });
+    const { combineMapPrompt = map_reduce_prompts_js_1.COMBINE_QA_PROMPT_SELECTOR.getPrompt(llm), combinePrompt = map_reduce_prompts_js_1.COMBINE_PROMPT_SELECTOR.getPrompt(llm), verbose, } = params;
+    const llmChain = new llm_chain_js_1.LLMChain({ prompt: combineMapPrompt, llm, verbose });
+    const combineLLMChain = new llm_chain_js_1.LLMChain({ prompt: combinePrompt, llm, verbose });
     const combineDocumentChain = new combine_docs_chain_js_1.StuffDocumentsChain({
         llmChain: combineLLMChain,
         documentVariableName: "summaries",
@@ -15650,9 +15658,9 @@ const loadQAMapReduceChain = (llm, params = {}) => {
 };
 exports.loadQAMapReduceChain = loadQAMapReduceChain;
 const loadQARefineChain = (llm, params = {}) => {
-    const { questionPrompt = refine_prompts_js_1.QUESTION_PROMPT_SELECTOR.getPrompt(llm), refinePrompt = refine_prompts_js_1.REFINE_PROMPT_SELECTOR.getPrompt(llm), } = params;
-    const llmChain = new llm_chain_js_1.LLMChain({ prompt: questionPrompt, llm });
-    const refineLLMChain = new llm_chain_js_1.LLMChain({ prompt: refinePrompt, llm });
+    const { questionPrompt = refine_prompts_js_1.QUESTION_PROMPT_SELECTOR.getPrompt(llm), refinePrompt = refine_prompts_js_1.REFINE_PROMPT_SELECTOR.getPrompt(llm), verbose, } = params;
+    const llmChain = new llm_chain_js_1.LLMChain({ prompt: questionPrompt, llm, verbose });
+    const refineLLMChain = new llm_chain_js_1.LLMChain({ prompt: refinePrompt, llm, verbose });
     const chain = new combine_docs_chain_js_1.RefineDocumentsChain({
         llmChain,
         refineLLMChain,
