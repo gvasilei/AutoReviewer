@@ -33,16 +33,21 @@ const run = async (): Promise<void> => {
       HumanMessagePromptTemplate.fromTemplate('{text}')
     ])
 
+    core.info('set up chat prompt')
     const chain = new LLMChain({
       prompt: chatPrompt,
       llm: model
     })
+
+    core.info('set up chain')
 
     const res = await chain.call({
       input_language: 'English',
       output_language: 'French',
       text: 'I love programming.'
     })
+
+    core.info('called chain')
 
     core.info(res.toString())
 
@@ -54,7 +59,10 @@ const run = async (): Promise<void> => {
 
     core.setOutput('time', new Date().toTimeString())
   } catch (error) {
-    if (error instanceof Error) core.setFailed(error.message)
+    if (error instanceof Error) {
+      core.error(error.stack || '')
+      core.setFailed(error.message)
+    }
   }
 }
 
