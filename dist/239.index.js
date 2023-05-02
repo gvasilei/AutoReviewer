@@ -533,7 +533,7 @@ const map_reduce_prompts_COMBINE_PROMPT_SELECTOR =
 ]);
 
 // EXTERNAL MODULE: ./node_modules/langchain/dist/prompts/few_shot.js
-var few_shot = __webpack_require__(609);
+var few_shot = __webpack_require__(5806);
 // EXTERNAL MODULE: ./node_modules/langchain/dist/prompts/template.js
 var template = __webpack_require__(837);
 ;// CONCATENATED MODULE: ./node_modules/langchain/dist/prompts/index.js
@@ -783,7 +783,7 @@ class VectorDBQAChain extends base/* BaseChain */.l {
 
 /***/ }),
 
-/***/ 609:
+/***/ 5806:
 /***/ ((__unused_webpack___webpack_module__, __webpack_exports__, __webpack_require__) => {
 
 __webpack_require__.r(__webpack_exports__);

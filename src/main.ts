@@ -1,3 +1,5 @@
+import fetch from 'node-fetch'
+import 'core-js/actual/structured-clone'
 import { config } from 'dotenv'
 import * as core from '@actions/core'
 import { wait } from './wait'

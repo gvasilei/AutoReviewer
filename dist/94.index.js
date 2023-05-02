@@ -94,7 +94,7 @@ class BasePromptTemplate {
                 return PromptTemplate.deserialize({ ...data, _type: "prompt" });
             }
             case "few_shot": {
-                const { FewShotPromptTemplate } = await __webpack_require__.e(/* import() */ 609).then(__webpack_require__.bind(__webpack_require__, 609));
+                const { FewShotPromptTemplate } = await __webpack_require__.e(/* import() */ 609).then(__webpack_require__.bind(__webpack_require__, 5806));
                 return FewShotPromptTemplate.deserialize(data);
             }
             default:
