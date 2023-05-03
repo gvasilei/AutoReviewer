@@ -82,7 +82,8 @@ const run = async (): Promise<void> => {
       core.info(`${file.filename} ${file.status}`)
     })
 
-    core.info(data.data.patch_url)
+    core.info(data.status.toString())
+    core.info(data.data.url)
   } catch (error) {
     if (error instanceof Error) {
       core.error(error.stack || '')

@@ -105,7 +105,8 @@ const run = () => __awaiter(void 0, void 0, void 0, function* () {
         (_a = data.data.files) === null || _a === void 0 ? void 0 : _a.map(file => {
             core.info(`${file.filename} ${file.status}`);
         });
-        core.info(data.data.patch_url);
+        core.info(data.status.toString());
+        core.info(data.data.url);
     }
     catch (error) {
         if (error instanceof Error) {
