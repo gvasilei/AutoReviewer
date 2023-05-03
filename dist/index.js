@@ -67,7 +67,7 @@ const run = () => __awaiter(void 0, void 0, void 0, function* () {
     });
     const octokit = github.getOctokit(githubToken);
     try {
-        core.info(`${repoPath} ${runId} ${eventName} ${eventPath}`);
+        core.info(`${owner} ${runId} ${repoName} ${headRef} ${baseRef}`);
         /*const { data: pullRequest } = await octokit.rest.pulls.get({
           owner,
           repo: 'rest.js',
@@ -76,17 +76,6 @@ const run = () => __awaiter(void 0, void 0, void 0, function* () {
             format: 'diff'
           }
         })*/
-        const data = yield octokit.rest.repos.compareCommitsWithBasehead({
-            basehead: `${baseRef}...${headRef}`,
-            owner,
-            repo: repoName,
-            mediaType: {
-                format: 'diff'
-            }
-        });
-        (_a = data.data.files) === null || _a === void 0 ? void 0 : _a.map(file => {
-            core.info(`${file.filename} ${file.status}`);
-        });
         // We can also construct an LLMChain from a ChatPromptTemplate and a chat model.
         const chatPrompt = prompts_1.ChatPromptTemplate.fromPromptMessages([
             prompts_1.SystemMessagePromptTemplate.fromTemplate('You are a helpful assistant that translates {input_language} to {output_language}.'),
@@ -105,6 +94,17 @@ const run = () => __awaiter(void 0, void 0, void 0, function* () {
         for (const key in res) {
             core.info(`${key} - ${res[key]}`);
         }
+        const data = yield octokit.rest.repos.compareCommitsWithBasehead({
+            basehead: `${baseRef}...${headRef}`,
+            owner,
+            repo: repoName,
+            mediaType: {
+                format: 'diff'
+            }
+        });
+        (_a = data.data.files) === null || _a === void 0 ? void 0 : _a.map(file => {
+            core.info(`${file.filename} ${file.status}`);
+        });
         const ms = core.getInput('milliseconds');
         core.info(`Waiting ${ms} milliseconds ...`); // debug is only output if you set the secret `ACTIONS_STEP_DEBUG` to true
         core.info(new Date().toTimeString());

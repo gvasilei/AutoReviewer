@@ -34,7 +34,7 @@ const run = async (): Promise<void> => {
   const octokit = github.getOctokit(githubToken)
 
   try {
-    core.info(`${repoPath} ${runId} ${eventName} ${eventPath}`)
+    core.info(`${owner} ${runId} ${repoName} ${headRef} ${baseRef}`)
     /*const { data: pullRequest } = await octokit.rest.pulls.get({
       owner,
       repo: 'rest.js',
@@ -44,17 +44,6 @@ const run = async (): Promise<void> => {
       }
     })*/
 
-    const data = await octokit.rest.repos.compareCommitsWithBasehead({
-      basehead: `${baseRef}...${headRef}`,
-      owner,
-      repo: repoName,
-      mediaType: {
-        format: 'diff'
-      }
-    })
-    data.data.files?.map(file => {
-      core.info(`${file.filename} ${file.status}`)
-    })
     // We can also construct an LLMChain from a ChatPromptTemplate and a chat model.
     const chatPrompt = ChatPromptTemplate.fromPromptMessages([
       SystemMessagePromptTemplate.fromTemplate(
@@ -78,6 +67,18 @@ const run = async (): Promise<void> => {
     for (const key in res) {
       core.info(`${key} - ${res[key]}`)
     }
+
+    const data = await octokit.rest.repos.compareCommitsWithBasehead({
+      basehead: `${baseRef}...${headRef}`,
+      owner,
+      repo: repoName,
+      mediaType: {
+        format: 'diff'
+      }
+    })
+    data.data.files?.map(file => {
+      core.info(`${file.filename} ${file.status}`)
+    })
 
     const ms: string = core.getInput('milliseconds')
     core.info(`Waiting ${ms} milliseconds ...`) // debug is only output if you set the secret `ACTIONS_STEP_DEBUG` to true
