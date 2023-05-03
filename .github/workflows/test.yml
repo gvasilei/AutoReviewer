@@ -25,3 +25,4 @@ jobs:
           NODE_OPTIONS: '--experimental-fetch'
         with:
           milliseconds: 1000
+          github_token: ${{ secrets.GITHUB_TOKEN }}
