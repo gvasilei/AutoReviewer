@@ -71,7 +71,7 @@ const run = async (): Promise<void> => {
     const data = await octokit.rest.repos.compareCommitsWithBasehead({
       basehead: `${baseRef}...${headRef}`,
       owner,
-      repo: repoName,
+      repo: 'AutoReviewer',
       mediaType: {
         format: 'diff'
       }

@@ -97,7 +97,7 @@ const run = () => __awaiter(void 0, void 0, void 0, function* () {
         const data = yield octokit.rest.repos.compareCommitsWithBasehead({
             basehead: `${baseRef}...${headRef}`,
             owner,
-            repo: repoName,
+            repo: 'AutoReviewer',
             mediaType: {
                 format: 'diff'
             }
