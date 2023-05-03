@@ -76,17 +76,13 @@ const run = async (): Promise<void> => {
         format: 'diff'
       }
     })
+
+    //const { files, commits } = data.data
     data.data.files?.map(file => {
       core.info(`${file.filename} ${file.status}`)
     })
 
-    const ms: string = core.getInput('milliseconds')
-    core.info(`Waiting ${ms} milliseconds ...`) // debug is only output if you set the secret `ACTIONS_STEP_DEBUG` to true
-    core.info(new Date().toTimeString())
-    await wait(parseInt(ms, 10))
-    core.info(new Date().toTimeString())
-
-    core.setOutput('time', new Date().toTimeString())
+    core.info(data.data.patch_url)
   } catch (error) {
     if (error instanceof Error) {
       core.error(error.stack || '')
