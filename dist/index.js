@@ -1,6 +1,125 @@
 require('./sourcemap-register.js');/******/ (() => { // webpackBootstrap
 /******/ 	var __webpack_modules__ = ({
 
+/***/ 1772:
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.excludeFilesByType = exports.createGitDiff = exports.parseGitDiff = void 0;
+function parseGitDiff(diff) {
+    const diffLines = diff.split(/\r?\n/);
+    const result = [];
+    let currentFile = null;
+    let currentHunk = null;
+    for (const line of diffLines) {
+        if (line.startsWith('diff')) {
+            // New file diff
+            if (currentFile) {
+                result.push(currentFile);
+            }
+            currentFile = {
+                oldPath: '',
+                newPath: '',
+                hunks: []
+            };
+        }
+        else if (line.startsWith('---')) {
+            // Old file path
+            if (currentFile) {
+                currentFile.oldPath = line.slice(4).trim();
+            }
+        }
+        else if (line.startsWith('+++')) {
+            // New file path
+            if (currentFile) {
+                currentFile.newPath = line.slice(4).trim();
+            }
+        }
+        else if (line.startsWith('@@')) {
+            // New hunk
+            currentHunk = {
+                startOld: 0,
+                lengthOld: 0,
+                startNew: 0,
+                lengthNew: 0,
+                lines: []
+            };
+            if (currentFile && currentHunk) {
+                currentFile.hunks.push(currentHunk);
+            }
+            const hunkHeader = /^@@ -(\d+),(\d+) \+(\d+),(\d+) @@/.exec(line);
+            if (hunkHeader) {
+                currentHunk.startOld = parseInt(hunkHeader[1], 10);
+                currentHunk.lengthOld = parseInt(hunkHeader[2], 10);
+                currentHunk.startNew = parseInt(hunkHeader[3], 10);
+                currentHunk.lengthNew = parseInt(hunkHeader[4], 10);
+            }
+        }
+        else if (currentHunk) {
+            // Hunk lines
+            let lineType;
+            let content;
+            let lineNumber;
+            if (line.startsWith('+')) {
+                lineType = 'add';
+                content = line.slice(1);
+                lineNumber = currentHunk.startNew++;
+            }
+            else if (line.startsWith('-')) {
+                lineType = 'delete';
+                content = line.slice(1);
+                lineNumber = currentHunk.startOld++;
+            }
+            else {
+                lineType = 'context';
+                content = line.slice(1);
+                currentHunk.startOld++;
+                currentHunk.startNew++;
+            }
+            currentHunk.lines.push({
+                type: lineType,
+                content,
+                lineNumber
+            });
+        }
+    }
+    // Save the last file diff
+    if (currentFile) {
+        result.push(currentFile);
+    }
+    return result;
+}
+exports.parseGitDiff = parseGitDiff;
+function createGitDiff(files) {
+    let diff = '';
+    for (const file of files) {
+        diff += `diff --git a/${file.oldPath} b/${file.newPath}\n`;
+        diff += `--- a/${file.oldPath}\n`;
+        diff += `+++ b/${file.newPath}\n`;
+        for (const hunk of file.hunks) {
+            diff += `@@ -${hunk.startOld},${hunk.lengthOld} +${hunk.startNew},${hunk.lengthNew} @@\n`;
+            for (const line of hunk.lines) {
+                const prefix = line.type === 'add' ? '+' : line.type === 'delete' ? '-' : ' ';
+                diff += `${prefix}${line.content}\n`;
+            }
+        }
+    }
+    return diff;
+}
+exports.createGitDiff = createGitDiff;
+function excludeFilesByType(files, excludedTypes) {
+    return files.filter(file => {
+        const fileExtension = file.newPath.split('.').pop() || '';
+        return !excludedTypes.includes(fileExtension);
+    });
+}
+exports.excludeFilesByType = excludeFilesByType;
+
+
+/***/ }),
+
 /***/ 3109:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
@@ -46,9 +165,9 @@ const github = __importStar(__nccwpck_require__(5438));
 const openai_1 = __nccwpck_require__(6079);
 const prompts_1 = __nccwpck_require__(224);
 const chains_1 = __nccwpck_require__(9248);
+const gitParser_1 = __nccwpck_require__(1772);
 (0, dotenv_1.config)();
 const run = () => __awaiter(void 0, void 0, void 0, function* () {
-    var _a;
     const repoPath = process.env['GITHUB_WORKSPACE'] || '';
     const runId = process.env['GITHUB_RUN_ID'] || '';
     const eventName = process.env['GITHUB_EVENT_NAME'] || '';
@@ -57,8 +176,10 @@ const run = () => __awaiter(void 0, void 0, void 0, function* () {
     const owner = process.env['GITHUB_REPOSITORY_OWNER'] || '';
     const headRef = process.env['GITHUB_HEAD_REF'] || '';
     const baseRef = process.env['GITHUB_BASE_REF'] || '';
-    const repoName = process.env['GITHUB_REPOSITORY'] || '';
+    const repository = process.env['GITHUB_REPOSITORY'] || '';
     const githubToken = core.getInput('github_token');
+    const context = github.context;
+    core.info(JSON.stringify(context, null, 2));
     const model = new openai_1.ChatOpenAI({
         temperature: 0,
         modelName: 'gpt-4',
@@ -66,47 +187,76 @@ const run = () => __awaiter(void 0, void 0, void 0, function* () {
     });
     const octokit = github.getOctokit(githubToken);
     try {
-        core.info(`${owner} ${runId} ${repoName} ${headRef} ${baseRef}`);
-        /*const { data: pullRequest } = await octokit.rest.pulls.get({
-          owner,
-          repo: 'rest.js',
-          pull_number: 123,
-          mediaType: {
-            format: 'diff'
-          }
-        })*/
-        // We can also construct an LLMChain from a ChatPromptTemplate and a chat model.
         const chatPrompt = prompts_1.ChatPromptTemplate.fromPromptMessages([
-            prompts_1.SystemMessagePromptTemplate.fromTemplate('You are a helpful assistant that translates {input_language} to {output_language}.'),
-            prompts_1.HumanMessagePromptTemplate.fromTemplate('{text}')
+            prompts_1.SystemMessagePromptTemplate.fromTemplate("Act as an empathetic software engineer that's an expert in all programming languages, frameworks and software architecture."),
+            prompts_1.HumanMessagePromptTemplate.fromTemplate(`You will take in a git diff, and tell the user what they could have improved (like a code review)
+      based on analyzing the git diff in order to see whats changed.
+      The programming language in the snippet is {lang}.
+      Feel free to provide any examples as markdown code snippets in your answer.
+
+      {diff}`)
         ]);
-        core.info('set up chat prompt');
         const chain = new chains_1.LLMChain({
             prompt: chatPrompt,
             llm: model
         });
-        const res = yield chain.call({
-            input_language: 'English',
-            output_language: 'French',
-            text: 'I love programming.'
-        });
-        for (const key in res) {
-            core.info(`${key} - ${res[key]}`);
-        }
-        const data = yield octokit.rest.repos.compareCommitsWithBasehead({
-            basehead: `${baseRef}...${headRef}`,
+        // TODO - improve this
+        const repoName = repository.split('/')[1];
+        const data2 = yield octokit.rest.pulls.get({
             owner,
-            repo: 'AutoReviewer',
+            repo: repoName,
+            pull_number: 7
+        });
+        const { base, head, url, diff_url, patch_url, statuses_url } = data2.data;
+        core.info(`${data2.status} base: ${base} head: ${head} url: ${url} diff_url: ${diff_url} patch_url: ${patch_url} statuses_url: ${statuses_url}`);
+        const diffRequest = yield octokit.rest.pulls.get({
+            owner,
+            repo: repoName,
+            pull_number: 7,
             mediaType: {
                 format: 'diff'
             }
         });
-        //const { files, commits } = data.data
-        (_a = data.data.files) === null || _a === void 0 ? void 0 : _a.map(file => {
-            core.info(`${file.filename} ${file.status}`);
+        const gitDiff = (0, gitParser_1.parseGitDiff)(diffRequest.data);
+        const gitDiffString = (0, gitParser_1.createGitDiff)((0, gitParser_1.excludeFilesByType)(gitDiff, ['js', 'json', 'yml', 'txt', 'map']));
+        core.info(gitDiffString);
+        const res = yield chain.call({
+            lang: 'TypeScript',
+            diff: gitDiffString
         });
-        core.info(data.status.toString());
-        core.info(data.data.url);
+        core.info(JSON.stringify(res));
+        /*const data = await octokit.rest.pulls.listFiles({
+          per_page: 100,
+          owner,
+          repo: 'AutoReviewer',
+          pull_number: 7
+        })
+    
+        const filesForReview = data.data
+          ?.filter(file => {
+            return (
+              file.status === 'added' ||
+              file.status === 'modified' ||
+              file.status === 'changed'
+            )
+          })
+          .filter(file => {
+            return !file.filename.includes('dist/')
+          })
+          .filter(file => {
+            return file.filename.includes('.ts')
+          })
+    
+        core.info(`files count: ${filesForReview?.length}`)
+        for (const file of filesForReview || []) {
+          core.info(JSON.stringify(file.filename))
+    
+          const res = await chain.call({
+            lang: 'TypeScript',
+            diff: file.patch
+          })
+        }
+        */
     }
     catch (error) {
         if (error instanceof Error) {

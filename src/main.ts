@@ -2,7 +2,6 @@ import 'core-js/actual/structured-clone'
 import { config } from 'dotenv'
 import * as core from '@actions/core'
 import * as github from '@actions/github'
-import { wait } from './wait'
 import { ChatOpenAI } from 'langchain/chat_models/openai'
 import {
   ChatPromptTemplate,
@@ -10,6 +9,7 @@ import {
   SystemMessagePromptTemplate
 } from 'langchain/prompts'
 import { LLMChain } from 'langchain/chains'
+import { parseGitDiff, createGitDiff, excludeFilesByType } from './gitParser'
 
 config()
 
@@ -22,8 +22,11 @@ const run = async (): Promise<void> => {
   const owner = process.env['GITHUB_REPOSITORY_OWNER'] || ''
   const headRef = process.env['GITHUB_HEAD_REF'] || ''
   const baseRef = process.env['GITHUB_BASE_REF'] || ''
-  const repoName = process.env['GITHUB_REPOSITORY'] || ''
+  const repository = process.env['GITHUB_REPOSITORY'] || ''
   const githubToken = core.getInput('github_token')
+
+  const context = github.context
+  core.info(JSON.stringify(context, null, 2))
 
   const model = new ChatOpenAI({
     temperature: 0,
@@ -34,56 +37,91 @@ const run = async (): Promise<void> => {
   const octokit = github.getOctokit(githubToken)
 
   try {
-    core.info(`${owner} ${runId} ${repoName} ${headRef} ${baseRef}`)
-    /*const { data: pullRequest } = await octokit.rest.pulls.get({
-      owner,
-      repo: 'rest.js',
-      pull_number: 123,
-      mediaType: {
-        format: 'diff'
-      }
-    })*/
-
-    // We can also construct an LLMChain from a ChatPromptTemplate and a chat model.
     const chatPrompt = ChatPromptTemplate.fromPromptMessages([
       SystemMessagePromptTemplate.fromTemplate(
-        'You are a helpful assistant that translates {input_language} to {output_language}.'
+        "Act as an empathetic software engineer that's an expert in all programming languages, frameworks and software architecture."
       ),
-      HumanMessagePromptTemplate.fromTemplate('{text}')
+      HumanMessagePromptTemplate.fromTemplate(`You will take in a git diff, and tell the user what they could have improved (like a code review)
+      based on analyzing the git diff in order to see whats changed.
+      The programming language in the snippet is {lang}.
+      Feel free to provide any examples as markdown code snippets in your answer.
+
+      {diff}`)
     ])
 
-    core.info('set up chat prompt')
     const chain = new LLMChain({
       prompt: chatPrompt,
       llm: model
     })
 
-    const res = await chain.call({
-      input_language: 'English',
-      output_language: 'French',
-      text: 'I love programming.'
+    // TODO - improve this
+    const repoName = repository.split('/')[1]
+
+    const data2 = await octokit.rest.pulls.get({
+      owner,
+      repo: repoName,
+      pull_number: 7
     })
 
-    for (const key in res) {
-      core.info(`${key} - ${res[key]}`)
-    }
+    const { base, head, url, diff_url, patch_url, statuses_url } = data2.data
+    core.info(
+      `${data2.status} base: ${base} head: ${head} url: ${url} diff_url: ${diff_url} patch_url: ${patch_url} statuses_url: ${statuses_url}`
+    )
 
-    const data = await octokit.rest.repos.compareCommitsWithBasehead({
-      basehead: `${baseRef}...${headRef}`,
+    const diffRequest: { data: unknown } = await octokit.rest.pulls.get({
       owner,
-      repo: 'AutoReviewer',
+      repo: repoName,
+      pull_number: 7,
       mediaType: {
         format: 'diff'
       }
     })
 
-    //const { files, commits } = data.data
-    data.data.files?.map(file => {
-      core.info(`${file.filename} ${file.status}`)
+    const gitDiff = parseGitDiff(diffRequest.data as string)
+    const gitDiffString = createGitDiff(
+      excludeFilesByType(gitDiff, ['js', 'json', 'yml', 'txt', 'map'])
+    )
+    core.info(gitDiffString)
+
+    const res = await chain.call({
+      lang: 'TypeScript',
+      diff: gitDiffString
     })
 
-    core.info(data.status.toString())
-    core.info(data.data.url)
+    core.info(JSON.stringify(res))
+
+    /*const data = await octokit.rest.pulls.listFiles({
+      per_page: 100,
+      owner,
+      repo: 'AutoReviewer',
+      pull_number: 7
+    })
+
+    const filesForReview = data.data
+      ?.filter(file => {
+        return (
+          file.status === 'added' ||
+          file.status === 'modified' ||
+          file.status === 'changed'
+        )
+      })
+      .filter(file => {
+        return !file.filename.includes('dist/')
+      })
+      .filter(file => {
+        return file.filename.includes('.ts')
+      })
+
+    core.info(`files count: ${filesForReview?.length}`)
+    for (const file of filesForReview || []) {
+      core.info(JSON.stringify(file.filename))
+
+      const res = await chain.call({
+        lang: 'TypeScript',
+        diff: file.patch
+      })
+    }
+    */
   } catch (error) {
     if (error instanceof Error) {
       core.error(error.stack || '')
