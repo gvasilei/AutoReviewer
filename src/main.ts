@@ -24,10 +24,8 @@ const run = async (): Promise<void> => {
     openAIApiKey
   })
 
-  core.info(`githubToken: ${githubToken}`)
   const octokit = github.getOctokit(githubToken)
   const context = github.context
-  //core.info(JSON.stringify(context, null, 2))
 
   try {
     const chatPrompt = ChatPromptTemplate.fromPromptMessages([
@@ -78,7 +76,8 @@ const run = async (): Promise<void> => {
       'json',
       'yml',
       'txt',
-      'map'
+      'map',
+      'gitignore'
     ])
     if (excludedGitDiff.length === 0) {
       core.info('No files to review')
@@ -94,39 +93,6 @@ const run = async (): Promise<void> => {
     })
 
     core.info(JSON.stringify(res))
-
-    /*const data = await octokit.rest.pulls.listFiles({
-      per_page: 100,
-      owner,
-      repo: 'AutoReviewer',
-      pull_number: 7
-    })
-
-    const filesForReview = data.data
-      ?.filter(file => {
-        return (
-          file.status === 'added' ||
-          file.status === 'modified' ||
-          file.status === 'changed'
-        )
-      })
-      .filter(file => {
-        return !file.filename.includes('dist/')
-      })
-      .filter(file => {
-        return file.filename.includes('.ts')
-      })
-
-    core.info(`files count: ${filesForReview?.length}`)
-    for (const file of filesForReview || []) {
-      core.info(JSON.stringify(file.filename))
-
-      const res = await chain.call({
-        lang: 'TypeScript',
-        diff: file.patch
-      })
-    }
-    */
   } catch (error) {
     if (error instanceof Error) {
       core.error(error.stack || '')

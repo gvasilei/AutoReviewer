@@ -177,10 +177,8 @@ const run = () => __awaiter(void 0, void 0, void 0, function* () {
         modelName: 'gpt-4',
         openAIApiKey
     });
-    core.info(`githubToken: ${githubToken}`);
     const octokit = github.getOctokit(githubToken);
     const context = github.context;
-    //core.info(JSON.stringify(context, null, 2))
     try {
         const chatPrompt = prompts_1.ChatPromptTemplate.fromPromptMessages([
             prompts_1.SystemMessagePromptTemplate.fromTemplate("Act as an empathetic software engineer that's an expert in all programming languages, frameworks and software architecture."),
@@ -217,7 +215,8 @@ const run = () => __awaiter(void 0, void 0, void 0, function* () {
             'json',
             'yml',
             'txt',
-            'map'
+            'map',
+            'gitignore'
         ]);
         if (excludedGitDiff.length === 0) {
             core.info('No files to review');
@@ -230,38 +229,6 @@ const run = () => __awaiter(void 0, void 0, void 0, function* () {
             diff: gitDiffString
         });
         core.info(JSON.stringify(res));
-        /*const data = await octokit.rest.pulls.listFiles({
-          per_page: 100,
-          owner,
-          repo: 'AutoReviewer',
-          pull_number: 7
-        })
-    
-        const filesForReview = data.data
-          ?.filter(file => {
-            return (
-              file.status === 'added' ||
-              file.status === 'modified' ||
-              file.status === 'changed'
-            )
-          })
-          .filter(file => {
-            return !file.filename.includes('dist/')
-          })
-          .filter(file => {
-            return file.filename.includes('.ts')
-          })
-    
-        core.info(`files count: ${filesForReview?.length}`)
-        for (const file of filesForReview || []) {
-          core.info(JSON.stringify(file.filename))
-    
-          const res = await chain.call({
-            lang: 'TypeScript',
-            diff: file.patch
-          })
-        }
-        */
     }
     catch (error) {
         if (error instanceof Error) {
