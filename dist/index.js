@@ -177,6 +177,7 @@ const run = () => __awaiter(void 0, void 0, void 0, function* () {
         modelName: 'gpt-4',
         openAIApiKey
     });
+    core.info(`githubToken: ${githubToken}`);
     const octokit = github.getOctokit(githubToken);
     const context = github.context;
     //core.info(JSON.stringify(context, null, 2))

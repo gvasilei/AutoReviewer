@@ -24,6 +24,7 @@ const run = async (): Promise<void> => {
     openAIApiKey
   })
 
+  core.info(`githubToken: ${githubToken}`)
   const octokit = github.getOctokit(githubToken)
   const context = github.context
   //core.info(JSON.stringify(context, null, 2))
