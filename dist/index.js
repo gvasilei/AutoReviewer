@@ -168,18 +168,12 @@ const chains_1 = __nccwpck_require__(9248);
 const gitParser_1 = __nccwpck_require__(1772);
 (0, dotenv_1.config)();
 const run = () => __awaiter(void 0, void 0, void 0, function* () {
-    const repoPath = process.env['GITHUB_WORKSPACE'] || '';
-    const runId = process.env['GITHUB_RUN_ID'] || '';
-    const eventName = process.env['GITHUB_EVENT_NAME'] || '';
-    const eventPath = process.env['GITHUB_EVENT_PATH'] || '';
+    var _a, _b, _c;
     const openAIApiKey = process.env['OPENAI_API_KEY'] || '';
     const owner = process.env['GITHUB_REPOSITORY_OWNER'] || '';
-    const headRef = process.env['GITHUB_HEAD_REF'] || '';
-    const baseRef = process.env['GITHUB_BASE_REF'] || '';
-    const repository = process.env['GITHUB_REPOSITORY'] || '';
     const githubToken = core.getInput('github_token');
     const context = github.context;
-    core.info(JSON.stringify(context, null, 2));
+    //core.info(JSON.stringify(context, null, 2))
     const model = new openai_1.ChatOpenAI({
         temperature: 0,
         modelName: 'gpt-4',
@@ -200,19 +194,18 @@ const run = () => __awaiter(void 0, void 0, void 0, function* () {
             prompt: chatPrompt,
             llm: model
         });
-        // TODO - improve this
-        const repoName = repository.split('/')[1];
+        core.info(`repoName: ${((_a = context.payload.repository) === null || _a === void 0 ? void 0 : _a.name) || ''} pull_number: ${context.payload.number} `);
         const data2 = yield octokit.rest.pulls.get({
             owner,
-            repo: repoName,
-            pull_number: 7
+            repo: ((_b = context.payload.repository) === null || _b === void 0 ? void 0 : _b.name) || '',
+            pull_number: context.payload.number
         });
         const { base, head, url, diff_url, patch_url, statuses_url } = data2.data;
         core.info(`${data2.status} base: ${base} head: ${head} url: ${url} diff_url: ${diff_url} patch_url: ${patch_url} statuses_url: ${statuses_url}`);
         const diffRequest = yield octokit.rest.pulls.get({
             owner,
-            repo: repoName,
-            pull_number: 7,
+            repo: ((_c = context.payload.repository) === null || _c === void 0 ? void 0 : _c.name) || '',
+            pull_number: context.payload.number,
             mediaType: {
                 format: 'diff'
             }

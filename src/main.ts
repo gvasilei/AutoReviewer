@@ -14,19 +14,12 @@ import { parseGitDiff, createGitDiff, excludeFilesByType } from './gitParser'
 config()
 
 const run = async (): Promise<void> => {
-  const repoPath = process.env['GITHUB_WORKSPACE'] || ''
-  const runId = process.env['GITHUB_RUN_ID'] || ''
-  const eventName = process.env['GITHUB_EVENT_NAME'] || ''
-  const eventPath = process.env['GITHUB_EVENT_PATH'] || ''
   const openAIApiKey = process.env['OPENAI_API_KEY'] || ''
   const owner = process.env['GITHUB_REPOSITORY_OWNER'] || ''
-  const headRef = process.env['GITHUB_HEAD_REF'] || ''
-  const baseRef = process.env['GITHUB_BASE_REF'] || ''
-  const repository = process.env['GITHUB_REPOSITORY'] || ''
   const githubToken = core.getInput('github_token')
 
   const context = github.context
-  core.info(JSON.stringify(context, null, 2))
+  //core.info(JSON.stringify(context, null, 2))
 
   const model = new ChatOpenAI({
     temperature: 0,
@@ -54,13 +47,15 @@ const run = async (): Promise<void> => {
       llm: model
     })
 
-    // TODO - improve this
-    const repoName = repository.split('/')[1]
-
+    core.info(
+      `repoName: ${context.payload.repository?.name || ''} pull_number: ${
+        context.payload.number
+      } `
+    )
     const data2 = await octokit.rest.pulls.get({
       owner,
-      repo: repoName,
-      pull_number: 7
+      repo: context.payload.repository?.name || '',
+      pull_number: context.payload.number
     })
 
     const { base, head, url, diff_url, patch_url, statuses_url } = data2.data
@@ -70,8 +65,8 @@ const run = async (): Promise<void> => {
 
     const diffRequest: { data: unknown } = await octokit.rest.pulls.get({
       owner,
-      repo: repoName,
-      pull_number: 7,
+      repo: context.payload.repository?.name || '',
+      pull_number: context.payload.number,
       mediaType: {
         format: 'diff'
       }
