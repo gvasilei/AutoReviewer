@@ -18,9 +18,6 @@ const run = async (): Promise<void> => {
   const owner = process.env['GITHUB_REPOSITORY_OWNER'] || ''
   const githubToken = core.getInput('github_token')
 
-  const context = github.context
-  //core.info(JSON.stringify(context, null, 2))
-
   const model = new ChatOpenAI({
     temperature: 0,
     modelName: 'gpt-4',
@@ -28,6 +25,8 @@ const run = async (): Promise<void> => {
   })
 
   const octokit = github.getOctokit(githubToken)
+  const context = github.context
+  //core.info(JSON.stringify(context, null, 2))
 
   try {
     const chatPrompt = ChatPromptTemplate.fromPromptMessages([
@@ -50,7 +49,7 @@ const run = async (): Promise<void> => {
     core.info(
       `repoName: ${context.payload.repository?.name || ''} pull_number: ${
         context.payload.number
-      } `
+      } owner: ${owner}`
     )
     const data2 = await octokit.rest.pulls.get({
       owner,

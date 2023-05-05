@@ -172,14 +172,14 @@ const run = () => __awaiter(void 0, void 0, void 0, function* () {
     const openAIApiKey = process.env['OPENAI_API_KEY'] || '';
     const owner = process.env['GITHUB_REPOSITORY_OWNER'] || '';
     const githubToken = core.getInput('github_token');
-    const context = github.context;
-    //core.info(JSON.stringify(context, null, 2))
     const model = new openai_1.ChatOpenAI({
         temperature: 0,
         modelName: 'gpt-4',
         openAIApiKey
     });
     const octokit = github.getOctokit(githubToken);
+    const context = github.context;
+    //core.info(JSON.stringify(context, null, 2))
     try {
         const chatPrompt = prompts_1.ChatPromptTemplate.fromPromptMessages([
             prompts_1.SystemMessagePromptTemplate.fromTemplate("Act as an empathetic software engineer that's an expert in all programming languages, frameworks and software architecture."),
@@ -194,7 +194,7 @@ const run = () => __awaiter(void 0, void 0, void 0, function* () {
             prompt: chatPrompt,
             llm: model
         });
-        core.info(`repoName: ${((_a = context.payload.repository) === null || _a === void 0 ? void 0 : _a.name) || ''} pull_number: ${context.payload.number} `);
+        core.info(`repoName: ${((_a = context.payload.repository) === null || _a === void 0 ? void 0 : _a.name) || ''} pull_number: ${context.payload.number} owner: ${owner}`);
         const data2 = yield octokit.rest.pulls.get({
             owner,
             repo: ((_b = context.payload.repository) === null || _b === void 0 ? void 0 : _b.name) || '',
