@@ -73,9 +73,19 @@ const run = async (): Promise<void> => {
     })
 
     const gitDiff = parseGitDiff(diffRequest.data as string)
-    const gitDiffString = createGitDiff(
-      excludeFilesByType(gitDiff, ['js', 'json', 'yml', 'txt', 'map'])
-    )
+    const excludedGitDiff = excludeFilesByType(gitDiff, [
+      'js',
+      'json',
+      'yml',
+      'txt',
+      'map'
+    ])
+    if (excludedGitDiff.length === 0) {
+      core.info('No files to review')
+      return
+    }
+
+    const gitDiffString = createGitDiff(excludedGitDiff)
     core.info(gitDiffString)
 
     const res = await chain.call({

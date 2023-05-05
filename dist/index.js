@@ -212,7 +212,18 @@ const run = () => __awaiter(void 0, void 0, void 0, function* () {
             }
         });
         const gitDiff = (0, gitParser_1.parseGitDiff)(diffRequest.data);
-        const gitDiffString = (0, gitParser_1.createGitDiff)((0, gitParser_1.excludeFilesByType)(gitDiff, ['js', 'json', 'yml', 'txt', 'map']));
+        const excludedGitDiff = (0, gitParser_1.excludeFilesByType)(gitDiff, [
+            'js',
+            'json',
+            'yml',
+            'txt',
+            'map'
+        ]);
+        if (excludedGitDiff.length === 0) {
+            core.info('No files to review');
+            return;
+        }
+        const gitDiffString = (0, gitParser_1.createGitDiff)(excludedGitDiff);
         core.info(gitDiffString);
         const res = yield chain.call({
             lang: 'TypeScript',
