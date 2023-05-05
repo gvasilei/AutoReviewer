@@ -26,7 +26,12 @@
   "license": "MIT",
   "dependencies": {
     "@actions/core": "^1.10.0",
-    "langchain": "^0.0.66"
+    "@actions/github": "^5.1.1",
+    "core-js": "^3.30.1",
+    "dotenv": "^16.0.3",
+    "langchain": "^0.0.68",
+    "node-fetch": "^3.3.1",
+    "typeorm": "^0.3.15"
   },
   "devDependencies": {
     "@types/node": "^18.15.13",
