@@ -174,7 +174,7 @@ const run = () => __awaiter(void 0, void 0, void 0, function* () {
     const githubToken = core.getInput('github_token');
     const model = new openai_1.ChatOpenAI({
         temperature: 0,
-        modelName: 'gpt-4',
+        //modelName: 'gpt-4',
         openAIApiKey
     });
     const octokit = github.getOctokit(githubToken);

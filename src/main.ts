@@ -20,7 +20,7 @@ const run = async (): Promise<void> => {
 
   const model = new ChatOpenAI({
     temperature: 0,
-    modelName: 'gpt-4',
+    //modelName: 'gpt-4',
     openAIApiKey
   })
 
