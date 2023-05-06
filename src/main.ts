@@ -15,13 +15,14 @@ config()
 
 const run = async (): Promise<void> => {
   const openAIApiKey = process.env['OPENAI_API_KEY'] || ''
+  const modelName = process.env['MODEL_NAME'] || 'gpt-3.5-turbo'
   const owner = process.env['GITHUB_REPOSITORY_OWNER'] || ''
   const githubToken = core.getInput('github_token')
 
   const model = new ChatOpenAI({
     temperature: 0,
-    //modelName: 'gpt-4',
-    openAIApiKey
+    openAIApiKey,
+    modelName
   })
 
   const octokit = github.getOctokit(githubToken)
@@ -84,15 +85,17 @@ const run = async (): Promise<void> => {
       return
     }
 
-    const gitDiffString = createGitDiff(excludedGitDiff)
-    core.info(gitDiffString)
+    for (const file of excludedGitDiff) {
+      const gitDiffString = createGitDiff([file])
+      core.info(gitDiffString)
 
-    const res = await chain.call({
-      lang: 'TypeScript',
-      diff: gitDiffString
-    })
+      const res = await chain.call({
+        lang: 'TypeScript',
+        diff: gitDiffString
+      })
 
-    core.info(JSON.stringify(res))
+      core.info(JSON.stringify(res))
+    }
   } catch (error) {
     if (error instanceof Error) {
       core.error(error.stack || '')

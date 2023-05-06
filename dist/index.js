@@ -170,12 +170,13 @@ const gitParser_1 = __nccwpck_require__(1772);
 const run = () => __awaiter(void 0, void 0, void 0, function* () {
     var _a, _b, _c;
     const openAIApiKey = process.env['OPENAI_API_KEY'] || '';
+    const modelName = process.env['MODEL_NAME'] || 'gpt-3.5-turbo';
     const owner = process.env['GITHUB_REPOSITORY_OWNER'] || '';
     const githubToken = core.getInput('github_token');
     const model = new openai_1.ChatOpenAI({
         temperature: 0,
-        //modelName: 'gpt-4',
-        openAIApiKey
+        openAIApiKey,
+        modelName
     });
     const octokit = github.getOctokit(githubToken);
     const context = github.context;
@@ -222,13 +223,15 @@ const run = () => __awaiter(void 0, void 0, void 0, function* () {
             core.info('No files to review');
             return;
         }
-        const gitDiffString = (0, gitParser_1.createGitDiff)(excludedGitDiff);
-        core.info(gitDiffString);
-        const res = yield chain.call({
-            lang: 'TypeScript',
-            diff: gitDiffString
-        });
-        core.info(JSON.stringify(res));
+        for (const file of excludedGitDiff) {
+            const gitDiffString = (0, gitParser_1.createGitDiff)([file]);
+            core.info(gitDiffString);
+            const res = yield chain.call({
+                lang: 'TypeScript',
+                diff: gitDiffString
+            });
+            core.info(JSON.stringify(res));
+        }
     }
     catch (error) {
         if (error instanceof Error) {
