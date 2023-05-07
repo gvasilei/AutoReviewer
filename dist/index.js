@@ -172,7 +172,7 @@ const run = () => __awaiter(void 0, void 0, void 0, function* () {
     const openAIApiKey = process.env['OPENAI_API_KEY'] || '';
     const owner = process.env['GITHUB_REPOSITORY_OWNER'] || '';
     const githubToken = core.getInput('github_token');
-    const modelName = core.getInput('MODEL_NAME');
+    const modelName = core.getInput('model_name');
     const model = new openai_1.ChatOpenAI({
         temperature: 0,
         openAIApiKey,
