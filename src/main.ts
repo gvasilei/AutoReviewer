@@ -15,9 +15,9 @@ config()
 
 const run = async (): Promise<void> => {
   const openAIApiKey = process.env['OPENAI_API_KEY'] || ''
-  const modelName = process.env['MODEL_NAME'] || 'gpt-3.5-turbo'
   const owner = process.env['GITHUB_REPOSITORY_OWNER'] || ''
   const githubToken = core.getInput('github_token')
+  const modelName = core.getInput('MODEL_NAME')
 
   const model = new ChatOpenAI({
     temperature: 0,

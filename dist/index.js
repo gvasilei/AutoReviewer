@@ -170,9 +170,9 @@ const gitParser_1 = __nccwpck_require__(1772);
 const run = () => __awaiter(void 0, void 0, void 0, function* () {
     var _a, _b, _c;
     const openAIApiKey = process.env['OPENAI_API_KEY'] || '';
-    const modelName = process.env['MODEL_NAME'] || 'gpt-3.5-turbo';
     const owner = process.env['GITHUB_REPOSITORY_OWNER'] || '';
     const githubToken = core.getInput('github_token');
+    const modelName = core.getInput('MODEL_NAME');
     const model = new openai_1.ChatOpenAI({
         temperature: 0,
         openAIApiKey,
