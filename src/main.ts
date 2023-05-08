@@ -96,8 +96,10 @@ const run = async (): Promise<void> => {
       })
 
       core.info(JSON.stringify(res))
+      const firstHunk = file.hunks[0]
+      const firstLine = firstHunk.lines[0].lineNumber || 1
       const lashHunk = file.hunks[file.hunks.length - 1]
-      const lastLine = lashHunk.lines[lashHunk.lines.length - 1].lineNumber
+      const lastLine = lashHunk.lines[lashHunk.lines.length - 1].lineNumber || 1
 
       await octokit.rest.pulls.createReviewComment({
         repo,
@@ -106,7 +108,9 @@ const run = async (): Promise<void> => {
         commit_id: pullRequest.data.head.sha,
         path: file.newPath.slice(1),
         body: res.text,
+        start_line: firstLine,
         line: lastLine,
+        start_side: 'RIGHT',
         side: 'RIGHT'
       })
     }
