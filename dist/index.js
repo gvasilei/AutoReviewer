@@ -7,7 +7,7 @@ require('./sourcemap-register.js');/******/ (() => { // webpackBootstrap
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.excludeFilesByType = exports.createGitDiff = exports.parseGitDiff = void 0;
+exports.excludeDeletedFiles = exports.excludeFilesByType = exports.createGitDiff = exports.parseGitDiff = void 0;
 function parseGitDiff(diff) {
     const diffLines = diff.split(/\r?\n/);
     const result = [];
@@ -96,8 +96,21 @@ function createGitDiff(files) {
     let diff = '';
     for (const file of files) {
         diff += `diff --git a/${file.oldPath} b/${file.newPath}\n`;
-        diff += `--- a/${file.oldPath}\n`;
-        diff += `+++ b/${file.newPath}\n`;
+        if (file.oldPath === '/dev/null') {
+            diff += `new file mode 100644\n`;
+            // TODO - missing indexs
+            diff += `--- ${file.oldPath}\n`;
+        }
+        else {
+            diff += `--- a/${file.oldPath}\n`;
+        }
+        if (file.newPath === '/dev/null') {
+            diff += `deleted file mode 100644\n`;
+            diff += `+++ ${file.newPath}\n`;
+        }
+        else {
+            diff += `+++ b/${file.newPath}\n`;
+        }
         for (const hunk of file.hunks) {
             diff += `@@ -${hunk.startOld},${hunk.lengthOld} +${hunk.startNew},${hunk.lengthNew} @@\n`;
             for (const line of hunk.lines) {
@@ -116,6 +129,10 @@ function excludeFilesByType(files, excludedTypes) {
     });
 }
 exports.excludeFilesByType = excludeFilesByType;
+function excludeDeletedFiles(files) {
+    return files.filter(file => file.newPath !== '/dev/null');
+}
+exports.excludeDeletedFiles = excludeDeletedFiles;
 
 
 /***/ }),
@@ -168,18 +185,18 @@ const chains_1 = __nccwpck_require__(9248);
 const gitParser_1 = __nccwpck_require__(1772);
 (0, dotenv_1.config)();
 const run = () => __awaiter(void 0, void 0, void 0, function* () {
-    var _a, _b, _c;
     const openAIApiKey = process.env['OPENAI_API_KEY'] || '';
-    const owner = process.env['GITHUB_REPOSITORY_OWNER'] || '';
     const githubToken = core.getInput('github_token');
     const modelName = core.getInput('model_name');
+    const octokit = github.getOctokit(githubToken);
+    const context = github.context;
+    const repo = context.repo.repo;
+    const owner = context.repo.owner;
     const model = new openai_1.ChatOpenAI({
         temperature: 0,
         openAIApiKey,
         modelName
     });
-    const octokit = github.getOctokit(githubToken);
-    const context = github.context;
     try {
         const chatPrompt = prompts_1.ChatPromptTemplate.fromPromptMessages([
             prompts_1.SystemMessagePromptTemplate.fromTemplate("Act as an empathetic software engineer that's an expert in all programming languages, frameworks and software architecture."),
@@ -194,24 +211,25 @@ const run = () => __awaiter(void 0, void 0, void 0, function* () {
             prompt: chatPrompt,
             llm: model
         });
-        core.info(`repoName: ${((_a = context.payload.repository) === null || _a === void 0 ? void 0 : _a.name) || ''} pull_number: ${context.payload.number} owner: ${owner}`);
-        const data2 = yield octokit.rest.pulls.get({
+        core.info(`repoName: ${repo} pull_number: ${context.payload.number} owner: ${owner}`);
+        const pullRequest = yield octokit.rest.pulls.get({
             owner,
-            repo: ((_b = context.payload.repository) === null || _b === void 0 ? void 0 : _b.name) || '',
+            repo,
             pull_number: context.payload.number
         });
-        const { base, head, url, diff_url, patch_url, statuses_url } = data2.data;
-        core.info(`${data2.status} base: ${base} head: ${head} url: ${url} diff_url: ${diff_url} patch_url: ${patch_url} statuses_url: ${statuses_url}`);
+        const { base, head, url, diff_url, patch_url, statuses_url } = pullRequest.data;
+        core.info(`${pullRequest.status} base: ${base} head: ${head} url: ${url} diff_url: ${diff_url} patch_url: ${patch_url} statuses_url: ${statuses_url}`);
         const diffRequest = yield octokit.rest.pulls.get({
             owner,
-            repo: ((_c = context.payload.repository) === null || _c === void 0 ? void 0 : _c.name) || '',
+            repo,
             pull_number: context.payload.number,
             mediaType: {
                 format: 'diff'
             }
         });
         const gitDiff = (0, gitParser_1.parseGitDiff)(diffRequest.data);
-        const excludedGitDiff = (0, gitParser_1.excludeFilesByType)(gitDiff, [
+        const gitDiffExludeDeleted = (0, gitParser_1.excludeDeletedFiles)(gitDiff);
+        const excludedGitDiff = (0, gitParser_1.excludeFilesByType)(gitDiffExludeDeleted, [
             'js',
             'json',
             'yml',
@@ -231,6 +249,14 @@ const run = () => __awaiter(void 0, void 0, void 0, function* () {
                 diff: gitDiffString
             });
             core.info(JSON.stringify(res));
+            yield octokit.rest.pulls.createReviewComment({
+                repo,
+                owner,
+                pull_number: context.payload.number,
+                commit_id: pullRequest.data.head.sha,
+                path: file.newPath.slice(1),
+                body: res.text
+            });
         }
     }
     catch (error) {

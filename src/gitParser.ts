@@ -109,8 +109,20 @@ export function createGitDiff(files: GitDiffFile[]): string {
 
   for (const file of files) {
     diff += `diff --git a/${file.oldPath} b/${file.newPath}\n`
-    diff += `--- a/${file.oldPath}\n`
-    diff += `+++ b/${file.newPath}\n`
+    if (file.oldPath === '/dev/null') {
+      diff += `new file mode 100644\n`
+      // TODO - missing indexs
+      diff += `--- ${file.oldPath}\n`
+    } else {
+      diff += `--- a/${file.oldPath}\n`
+    }
+
+    if (file.newPath === '/dev/null') {
+      diff += `deleted file mode 100644\n`
+      diff += `+++ ${file.newPath}\n`
+    } else {
+      diff += `+++ b/${file.newPath}\n`
+    }
 
     for (const hunk of file.hunks) {
       diff += `@@ -${hunk.startOld},${hunk.lengthOld} +${hunk.startNew},${hunk.lengthNew} @@\n`
@@ -135,4 +147,8 @@ export function excludeFilesByType(
     const fileExtension = file.newPath.split('.').pop() || ''
     return !excludedTypes.includes(fileExtension)
   })
+}
+
+export function excludeDeletedFiles(files: GitDiffFile[]): GitDiffFile[] {
+  return files.filter(file => file.newPath !== '/dev/null')
 }

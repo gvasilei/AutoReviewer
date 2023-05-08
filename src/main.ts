@@ -9,24 +9,25 @@ import {
   SystemMessagePromptTemplate
 } from 'langchain/prompts'
 import { LLMChain } from 'langchain/chains'
-import { parseGitDiff, createGitDiff, excludeFilesByType } from './gitParser'
+import { parseGitDiff, createGitDiff, excludeFilesByType, excludeDeletedFiles } from './gitParser'
 
 config()
 
 const run = async (): Promise<void> => {
   const openAIApiKey = process.env['OPENAI_API_KEY'] || ''
-  const owner = process.env['GITHUB_REPOSITORY_OWNER'] || ''
   const githubToken = core.getInput('github_token')
   const modelName = core.getInput('model_name')
+
+  const octokit = github.getOctokit(githubToken)
+  const context = github.context
+  const repo = context.repo.repo
+  const owner = context.repo.owner
 
   const model = new ChatOpenAI({
     temperature: 0,
     openAIApiKey,
     modelName
   })
-
-  const octokit = github.getOctokit(githubToken)
-  const context = github.context
 
   try {
     const chatPrompt = ChatPromptTemplate.fromPromptMessages([
@@ -47,24 +48,23 @@ const run = async (): Promise<void> => {
     })
 
     core.info(
-      `repoName: ${context.payload.repository?.name || ''} pull_number: ${
-        context.payload.number
-      } owner: ${owner}`
+      `repoName: ${repo} pull_number: ${context.payload.number} owner: ${owner}`
     )
-    const data2 = await octokit.rest.pulls.get({
+    const pullRequest = await octokit.rest.pulls.get({
       owner,
-      repo: context.payload.repository?.name || '',
+      repo,
       pull_number: context.payload.number
     })
 
-    const { base, head, url, diff_url, patch_url, statuses_url } = data2.data
+    const { base, head, url, diff_url, patch_url, statuses_url } =
+      pullRequest.data
     core.info(
-      `${data2.status} base: ${base} head: ${head} url: ${url} diff_url: ${diff_url} patch_url: ${patch_url} statuses_url: ${statuses_url}`
+      `${pullRequest.status} base: ${base} head: ${head} url: ${url} diff_url: ${diff_url} patch_url: ${patch_url} statuses_url: ${statuses_url}`
     )
 
     const diffRequest: { data: unknown } = await octokit.rest.pulls.get({
       owner,
-      repo: context.payload.repository?.name || '',
+      repo,
       pull_number: context.payload.number,
       mediaType: {
         format: 'diff'
@@ -72,7 +72,8 @@ const run = async (): Promise<void> => {
     })
 
     const gitDiff = parseGitDiff(diffRequest.data as string)
-    const excludedGitDiff = excludeFilesByType(gitDiff, [
+    const gitDiffExludeDeleted = excludeDeletedFiles(gitDiff)
+    const excludedGitDiff = excludeFilesByType(gitDiffExludeDeleted, [
       'js',
       'json',
       'yml',
@@ -95,6 +96,15 @@ const run = async (): Promise<void> => {
       })
 
       core.info(JSON.stringify(res))
+
+      await octokit.rest.pulls.createReviewComment({
+        repo,
+        owner,
+        pull_number: context.payload.number,
+        commit_id: pullRequest.data.head.sha,
+        path: file.newPath.slice(1),
+        body: res.text
+      })
     }
   } catch (error) {
     if (error instanceof Error) {
