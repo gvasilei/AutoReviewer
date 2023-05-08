@@ -249,13 +249,17 @@ const run = () => __awaiter(void 0, void 0, void 0, function* () {
                 diff: gitDiffString
             });
             core.info(JSON.stringify(res));
+            const lashHunk = file.hunks[file.hunks.length - 1];
+            const lastLine = lashHunk.lines[lashHunk.lines.length - 1].lineNumber;
             yield octokit.rest.pulls.createReviewComment({
                 repo,
                 owner,
                 pull_number: context.payload.number,
                 commit_id: pullRequest.data.head.sha,
                 path: file.newPath.slice(1),
-                body: res.text
+                body: res.text,
+                line: lastLine,
+                side: 'RIGHT'
             });
         }
     }
