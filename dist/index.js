@@ -53,8 +53,7 @@ const run = () => __awaiter(void 0, void 0, void 0, function* () {
     const modelName = core.getInput('model_name');
     const octokit = github.getOctokit(githubToken);
     const context = github.context;
-    const repo = context.repo.repo;
-    const owner = context.repo.owner;
+    const { owner, repo } = context.repo;
     const model = new openai_1.ChatOpenAI({
         temperature: 0,
         openAIApiKey,
@@ -74,14 +73,7 @@ const run = () => __awaiter(void 0, void 0, void 0, function* () {
             prompt: chatPrompt,
             llm: model
         });
-        core.info(`repoName: ${repo} pull_number: ${context.payload.number} owner: ${owner}`);
-        const pullRequest = yield octokit.rest.pulls.get({
-            owner,
-            repo,
-            pull_number: context.payload.number
-        });
-        const { base, head, url, diff_url, patch_url, statuses_url } = pullRequest.data;
-        core.info(`${pullRequest.status} base: ${base} head: ${head} url: ${url} diff_url: ${diff_url} patch_url: ${patch_url} statuses_url: ${statuses_url}`);
+        core.info(`repoName: ${repo} pull_number: ${context.payload.number} owner: ${owner} sha: ${context.sha}`);
         const pullRequestFiles = yield octokit.rest.pulls.listFiles({
             owner,
             repo,
@@ -103,7 +95,7 @@ const run = () => __awaiter(void 0, void 0, void 0, function* () {
                 repo,
                 owner,
                 pull_number: context.payload.number,
-                commit_id: pullRequest.data.head.sha,
+                commit_id: context.sha,
                 path: file.filename,
                 body: res.text,
                 position: patch.split('\n').length - 1

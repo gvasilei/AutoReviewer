@@ -19,8 +19,7 @@ const run = async (): Promise<void> => {
 
   const octokit = github.getOctokit(githubToken)
   const context = github.context
-  const repo = context.repo.repo
-  const owner = context.repo.owner
+  const { owner, repo } = context.repo
 
   const model = new ChatOpenAI({
     temperature: 0,
@@ -47,18 +46,7 @@ const run = async (): Promise<void> => {
     })
 
     core.info(
-      `repoName: ${repo} pull_number: ${context.payload.number} owner: ${owner}`
-    )
-    const pullRequest = await octokit.rest.pulls.get({
-      owner,
-      repo,
-      pull_number: context.payload.number
-    })
-
-    const { base, head, url, diff_url, patch_url, statuses_url } =
-      pullRequest.data
-    core.info(
-      `${pullRequest.status} base: ${base} head: ${head} url: ${url} diff_url: ${diff_url} patch_url: ${patch_url} statuses_url: ${statuses_url}`
+      `repoName: ${repo} pull_number: ${context.payload.number} owner: ${owner} sha: ${context.sha}`
     )
 
     const pullRequestFiles = await octokit.rest.pulls.listFiles({
@@ -75,7 +63,6 @@ const run = async (): Promise<void> => {
     })
 
     core.info(JSON.stringify(files, null, 2))
-
     for (const file of files) {
       const res = await chain.call({
         lang: 'TypeScript',
@@ -89,7 +76,7 @@ const run = async (): Promise<void> => {
         repo,
         owner,
         pull_number: context.payload.number,
-        commit_id: pullRequest.data.head.sha,
+        commit_id: context.sha,
         path: file.filename,
         body: res.text,
         position: patch.split('\n').length - 1
