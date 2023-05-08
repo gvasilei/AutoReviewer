@@ -9,23 +9,23 @@ import {
   SystemMessagePromptTemplate
 } from 'langchain/prompts'
 import { LLMChain } from 'langchain/chains'
-import { parseGitDiff, createGitDiff, excludeFilesByType } from './gitParser'
 
 config()
 
 const run = async (): Promise<void> => {
   const openAIApiKey = process.env['OPENAI_API_KEY'] || ''
-  const owner = process.env['GITHUB_REPOSITORY_OWNER'] || ''
   const githubToken = core.getInput('github_token')
-
-  const model = new ChatOpenAI({
-    temperature: 0,
-    modelName: 'gpt-4',
-    openAIApiKey
-  })
+  const modelName = core.getInput('model_name')
 
   const octokit = github.getOctokit(githubToken)
   const context = github.context
+  const { owner, repo } = context.repo
+
+  const model = new ChatOpenAI({
+    temperature: 0,
+    openAIApiKey,
+    modelName
+  })
 
   try {
     const chatPrompt = ChatPromptTemplate.fromPromptMessages([
@@ -46,53 +46,42 @@ const run = async (): Promise<void> => {
     })
 
     core.info(
-      `repoName: ${context.payload.repository?.name || ''} pull_number: ${
-        context.payload.number
-      } owner: ${owner}`
+      `repoName: ${repo} pull_number: ${context.payload.number} owner: ${owner} sha: ${context.sha}`
     )
-    const data2 = await octokit.rest.pulls.get({
+
+    const pullRequestFiles = await octokit.rest.pulls.listFiles({
       owner,
-      repo: context.payload.repository?.name || '',
+      repo,
       pull_number: context.payload.number
     })
 
-    const { base, head, url, diff_url, patch_url, statuses_url } = data2.data
-    core.info(
-      `${data2.status} base: ${base} head: ${head} url: ${url} diff_url: ${diff_url} patch_url: ${patch_url} statuses_url: ${statuses_url}`
-    )
-
-    const diffRequest: { data: unknown } = await octokit.rest.pulls.get({
-      owner,
-      repo: context.payload.repository?.name || '',
-      pull_number: context.payload.number,
-      mediaType: {
-        format: 'diff'
-      }
+    const files = pullRequestFiles.data.filter(file => {
+      return (
+        file.filename.includes('.ts') &&
+        file.status === ('modified' || 'added' || 'changed')
+      )
     })
 
-    const gitDiff = parseGitDiff(diffRequest.data as string)
-    const excludedGitDiff = excludeFilesByType(gitDiff, [
-      'js',
-      'json',
-      'yml',
-      'txt',
-      'map',
-      'gitignore'
-    ])
-    if (excludedGitDiff.length === 0) {
-      core.info('No files to review')
-      return
+    core.info(JSON.stringify(files, null, 2))
+    for (const file of files) {
+      const res = await chain.call({
+        lang: 'TypeScript',
+        diff: file.patch
+      })
+
+      core.info(JSON.stringify(res))
+      const patch = file.patch || ''
+
+      await octokit.rest.pulls.createReviewComment({
+        repo,
+        owner,
+        pull_number: context.payload.number,
+        commit_id: context.sha,
+        path: file.filename,
+        body: res.text,
+        position: patch.split('\n').length - 1
+      })
     }
-
-    const gitDiffString = createGitDiff(excludedGitDiff)
-    core.info(gitDiffString)
-
-    const res = await chain.call({
-      lang: 'TypeScript',
-      diff: gitDiffString
-    })
-
-    core.info(JSON.stringify(res))
   } catch (error) {
     if (error instanceof Error) {
       core.error(error.stack || '')

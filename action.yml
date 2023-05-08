@@ -3,8 +3,12 @@ description: 'Provide a description here'
 author: 'Your name or organization here'
 inputs:
   github_token:
-    required: true
     description: 'github token'
+    required: true
+  model_name: 
+    description: 'OpenAI model name'
+    default: 'gpt-3.5-turbo'
+
 runs:
   using: 'node16'
   main: 'dist/index.js'
