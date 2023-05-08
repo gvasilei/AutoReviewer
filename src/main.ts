@@ -9,7 +9,6 @@ import {
   SystemMessagePromptTemplate
 } from 'langchain/prompts'
 import { LLMChain } from 'langchain/chains'
-import { parseGitDiff, createGitDiff, excludeFilesByType, excludeDeletedFiles } from './gitParser'
 
 config()
 
@@ -62,69 +61,38 @@ const run = async (): Promise<void> => {
       `${pullRequest.status} base: ${base} head: ${head} url: ${url} diff_url: ${diff_url} patch_url: ${patch_url} statuses_url: ${statuses_url}`
     )
 
-    const diffRequest: { data: unknown } = await octokit.rest.pulls.get({
+    const pullRequestFiles = await octokit.rest.pulls.listFiles({
       owner,
       repo,
-      pull_number: context.payload.number,
-      mediaType: {
-        format: 'diff'
-      }
+      pull_number: context.payload.number
     })
 
-    const gitDiff = parseGitDiff(diffRequest.data as string)
-    const gitDiffExludeDeleted = excludeDeletedFiles(gitDiff)
-    const excludedGitDiff = excludeFilesByType(gitDiffExludeDeleted, [
-      'js',
-      'json',
-      'yml',
-      'txt',
-      'map',
-      'gitignore'
-    ])
-    if (excludedGitDiff.length === 0) {
-      core.info('No files to review')
-      return
-    }
+    const files = pullRequestFiles.data.filter(file => {
+      return (
+        file.filename.includes('.ts') &&
+        file.status === ('modified' || 'added' || 'changed')
+      )
+    })
 
-    for (const file of excludedGitDiff) {
-      const gitDiffString = createGitDiff([file])
-      core.info(gitDiffString)
+    core.info(JSON.stringify(files, null, 2))
 
+    for (const file of files) {
       const res = await chain.call({
         lang: 'TypeScript',
-        diff: gitDiffString
+        diff: file.patch
       })
 
       core.info(JSON.stringify(res))
-      const firstHunk = file.hunks[0]
-      const lashHunk = file.hunks[file.hunks.length - 1]
-
-      const reviewComment = {
-        repo,
-        owner,
-        pull_number: context.payload.number,
-        commit_id: pullRequest.data.head.sha,
-        path: file.newPath.slice(1),
-        body: res.text,
-        start_line: firstHunk.startNew,
-        line: lashHunk.startNew + lashHunk.lengthNew,
-        start_side: 'RIGHT',
-        side: 'RIGHT'
-      }
-
-      core.info(JSON.stringify(reviewComment, undefined, 2))
+      const patch = file.patch || ''
 
       await octokit.rest.pulls.createReviewComment({
         repo,
         owner,
         pull_number: context.payload.number,
         commit_id: pullRequest.data.head.sha,
-        path: file.newPath.slice(1),
+        path: file.filename,
         body: res.text,
-        start_line: firstHunk.startNew,
-        line: lashHunk.startNew + lashHunk.lengthNew,
-        start_side: 'RIGHT',
-        side: 'RIGHT'
+        position: patch.split('\n').length - 1
       })
     }
   } catch (error) {

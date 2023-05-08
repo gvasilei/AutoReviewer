@@ -1,142 +1,6 @@
 require('./sourcemap-register.js');/******/ (() => { // webpackBootstrap
 /******/ 	var __webpack_modules__ = ({
 
-/***/ 1772:
-/***/ ((__unused_webpack_module, exports) => {
-
-"use strict";
-
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.excludeDeletedFiles = exports.excludeFilesByType = exports.createGitDiff = exports.parseGitDiff = void 0;
-function parseGitDiff(diff) {
-    const diffLines = diff.split(/\r?\n/);
-    const result = [];
-    let currentFile = null;
-    let currentHunk = null;
-    for (const line of diffLines) {
-        if (line.startsWith('diff')) {
-            // New file diff
-            if (currentFile) {
-                result.push(currentFile);
-            }
-            currentFile = {
-                oldPath: '',
-                newPath: '',
-                hunks: []
-            };
-        }
-        else if (line.startsWith('---')) {
-            // Old file path
-            if (currentFile) {
-                currentFile.oldPath = line.slice(4).trim();
-            }
-        }
-        else if (line.startsWith('+++')) {
-            // New file path
-            if (currentFile) {
-                currentFile.newPath = line.slice(4).trim();
-            }
-        }
-        else if (line.startsWith('@@')) {
-            // New hunk
-            currentHunk = {
-                startOld: 0,
-                lengthOld: 0,
-                startNew: 0,
-                lengthNew: 0,
-                lines: []
-            };
-            if (currentFile && currentHunk) {
-                currentFile.hunks.push(currentHunk);
-            }
-            const hunkHeader = /^@@ -(\d+),(\d+) \+(\d+),(\d+) @@/.exec(line);
-            if (hunkHeader) {
-                currentHunk.startOld = parseInt(hunkHeader[1], 10);
-                currentHunk.lengthOld = parseInt(hunkHeader[2], 10);
-                currentHunk.startNew = parseInt(hunkHeader[3], 10);
-                currentHunk.lengthNew = parseInt(hunkHeader[4], 10);
-            }
-        }
-        else if (currentHunk) {
-            // Hunk lines
-            let lineType;
-            let content;
-            let lineNumber;
-            if (line.startsWith('+')) {
-                lineType = 'add';
-                content = line.slice(1);
-                lineNumber = currentHunk.startNew++;
-            }
-            else if (line.startsWith('-')) {
-                lineType = 'delete';
-                content = line.slice(1);
-                lineNumber = currentHunk.startOld++;
-            }
-            else {
-                lineType = 'context';
-                content = line.slice(1);
-                currentHunk.startOld++;
-                currentHunk.startNew++;
-            }
-            currentHunk.lines.push({
-                type: lineType,
-                content,
-                lineNumber
-            });
-        }
-    }
-    // Save the last file diff
-    if (currentFile) {
-        result.push(currentFile);
-    }
-    return result;
-}
-exports.parseGitDiff = parseGitDiff;
-function createGitDiff(files) {
-    let diff = '';
-    for (const file of files) {
-        diff += `diff --git a/${file.oldPath} b/${file.newPath}\n`;
-        if (file.oldPath === '/dev/null') {
-            diff += `new file mode 100644\n`;
-            // TODO - missing indexs
-            diff += `--- ${file.oldPath}\n`;
-        }
-        else {
-            diff += `--- a/${file.oldPath}\n`;
-        }
-        if (file.newPath === '/dev/null') {
-            diff += `deleted file mode 100644\n`;
-            diff += `+++ ${file.newPath}\n`;
-        }
-        else {
-            diff += `+++ b/${file.newPath}\n`;
-        }
-        for (const hunk of file.hunks) {
-            diff += `@@ -${hunk.startOld},${hunk.lengthOld} +${hunk.startNew},${hunk.lengthNew} @@\n`;
-            for (const line of hunk.lines) {
-                const prefix = line.type === 'add' ? '+' : line.type === 'delete' ? '-' : ' ';
-                diff += `${prefix}${line.content}\n`;
-            }
-        }
-    }
-    return diff;
-}
-exports.createGitDiff = createGitDiff;
-function excludeFilesByType(files, excludedTypes) {
-    return files.filter(file => {
-        const fileExtension = file.newPath.split('.').pop() || '';
-        return !excludedTypes.includes(fileExtension);
-    });
-}
-exports.excludeFilesByType = excludeFilesByType;
-function excludeDeletedFiles(files) {
-    return files.filter(file => file.newPath !== '/dev/null');
-}
-exports.excludeDeletedFiles = excludeDeletedFiles;
-
-
-/***/ }),
-
 /***/ 3109:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
@@ -182,7 +46,6 @@ const github = __importStar(__nccwpck_require__(5438));
 const openai_1 = __nccwpck_require__(6079);
 const prompts_1 = __nccwpck_require__(224);
 const chains_1 = __nccwpck_require__(9248);
-const gitParser_1 = __nccwpck_require__(1772);
 (0, dotenv_1.config)();
 const run = () => __awaiter(void 0, void 0, void 0, function* () {
     const openAIApiKey = process.env['OPENAI_API_KEY'] || '';
@@ -219,62 +82,31 @@ const run = () => __awaiter(void 0, void 0, void 0, function* () {
         });
         const { base, head, url, diff_url, patch_url, statuses_url } = pullRequest.data;
         core.info(`${pullRequest.status} base: ${base} head: ${head} url: ${url} diff_url: ${diff_url} patch_url: ${patch_url} statuses_url: ${statuses_url}`);
-        const diffRequest = yield octokit.rest.pulls.get({
+        const pullRequestFiles = yield octokit.rest.pulls.listFiles({
             owner,
             repo,
-            pull_number: context.payload.number,
-            mediaType: {
-                format: 'diff'
-            }
+            pull_number: context.payload.number
         });
-        const gitDiff = (0, gitParser_1.parseGitDiff)(diffRequest.data);
-        const gitDiffExludeDeleted = (0, gitParser_1.excludeDeletedFiles)(gitDiff);
-        const excludedGitDiff = (0, gitParser_1.excludeFilesByType)(gitDiffExludeDeleted, [
-            'js',
-            'json',
-            'yml',
-            'txt',
-            'map',
-            'gitignore'
-        ]);
-        if (excludedGitDiff.length === 0) {
-            core.info('No files to review');
-            return;
-        }
-        for (const file of excludedGitDiff) {
-            const gitDiffString = (0, gitParser_1.createGitDiff)([file]);
-            core.info(gitDiffString);
+        const files = pullRequestFiles.data.filter(file => {
+            return (file.filename.includes('.ts') &&
+                file.status === ('modified' || 0 || 0));
+        });
+        core.info(JSON.stringify(files, null, 2));
+        for (const file of files) {
             const res = yield chain.call({
                 lang: 'TypeScript',
-                diff: gitDiffString
+                diff: file.patch
             });
             core.info(JSON.stringify(res));
-            const firstHunk = file.hunks[0];
-            const lashHunk = file.hunks[file.hunks.length - 1];
-            const reviewComment = {
-                repo,
-                owner,
-                pull_number: context.payload.number,
-                commit_id: pullRequest.data.head.sha,
-                path: file.newPath.slice(1),
-                body: res.text,
-                start_line: firstHunk.startNew,
-                line: lashHunk.startNew + lashHunk.lengthNew,
-                start_side: 'RIGHT',
-                side: 'RIGHT'
-            };
-            core.info(JSON.stringify(reviewComment, undefined, 2));
+            const patch = file.patch || '';
             yield octokit.rest.pulls.createReviewComment({
                 repo,
                 owner,
                 pull_number: context.payload.number,
                 commit_id: pullRequest.data.head.sha,
-                path: file.newPath.slice(1),
+                path: file.filename,
                 body: res.text,
-                start_line: firstHunk.startNew,
-                line: lashHunk.startNew + lashHunk.lengthNew,
-                start_side: 'RIGHT',
-                side: 'RIGHT'
+                position: patch.split('\n').length - 1
             });
         }
     }
