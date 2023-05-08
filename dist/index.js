@@ -253,6 +253,19 @@ const run = () => __awaiter(void 0, void 0, void 0, function* () {
             const firstLine = firstHunk.lines[0].lineNumber || 1;
             const lashHunk = file.hunks[file.hunks.length - 1];
             const lastLine = lashHunk.lines[lashHunk.lines.length - 1].lineNumber || 1;
+            const reviewComment = {
+                repo,
+                owner,
+                pull_number: context.payload.number,
+                commit_id: pullRequest.data.head.sha,
+                path: file.newPath.slice(1),
+                body: res.text,
+                start_line: firstLine,
+                line: lastLine,
+                start_side: 'RIGHT',
+                side: 'RIGHT'
+            };
+            core.info(JSON.stringify(reviewComment, undefined, 2));
             yield octokit.rest.pulls.createReviewComment({
                 repo,
                 owner,
