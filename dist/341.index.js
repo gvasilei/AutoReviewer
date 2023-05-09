@@ -304,7 +304,7 @@ function isChatModel(llm) {
 
 
 
-const stuff_prompts_DEFAULT_QA_PROMPT = /*#__PURE__*/ new prompts_prompt.PromptTemplate({
+const DEFAULT_QA_PROMPT = /*#__PURE__*/ new prompts_prompt.PromptTemplate({
     template: "Use the following pieces of context to answer the question at the end. If you don't know the answer, just say that you don't know, don't try to make up an answer.\n\n{context}\n\nQuestion: {question}\nHelpful Answer:",
     inputVariables: ["context", "question"],
 });
@@ -318,7 +318,7 @@ const messages = [
 ];
 const CHAT_PROMPT = 
 /*#__PURE__*/ ChatPromptTemplate.fromPromptMessages(messages);
-const QA_PROMPT_SELECTOR = /*#__PURE__*/ new ConditionalPromptSelector(stuff_prompts_DEFAULT_QA_PROMPT, [[isChatModel, CHAT_PROMPT]]);
+const QA_PROMPT_SELECTOR = /*#__PURE__*/ new ConditionalPromptSelector(DEFAULT_QA_PROMPT, [[isChatModel, CHAT_PROMPT]]);
 
 ;// CONCATENATED MODULE: ./node_modules/langchain/dist/chains/question_answering/map_reduce_prompts.js
 /* eslint-disable spaced-comment */
@@ -330,7 +330,7 @@ Return any relevant text verbatim.
 {context}
 Question: {question}
 Relevant text, if any:`;
-const map_reduce_prompts_DEFAULT_COMBINE_QA_PROMPT = 
+const DEFAULT_COMBINE_QA_PROMPT = 
 /*#__PURE__*/
 prompts_prompt.PromptTemplate.fromTemplate(qa_template);
 const map_reduce_prompts_system_template = `Use the following portion of a long document to see if any of the text is relevant to answer the question. 
@@ -344,7 +344,7 @@ const map_reduce_prompts_messages = [
 const CHAT_QA_PROMPT = 
 /*#__PURE__*/ ChatPromptTemplate.fromPromptMessages(map_reduce_prompts_messages);
 const map_reduce_prompts_COMBINE_QA_PROMPT_SELECTOR = 
-/*#__PURE__*/ new ConditionalPromptSelector(map_reduce_prompts_DEFAULT_COMBINE_QA_PROMPT, [
+/*#__PURE__*/ new ConditionalPromptSelector(DEFAULT_COMBINE_QA_PROMPT, [
     [isChatModel, CHAT_QA_PROMPT],
 ]);
 const combine_prompt = `Given the following extracted parts of a long document and a question, create a final answer. 
@@ -377,7 +377,7 @@ QUESTION: {question}
 {summaries}
 =========
 FINAL ANSWER:`;
-const map_reduce_prompts_COMBINE_PROMPT = 
+const COMBINE_PROMPT = 
 /*#__PURE__*/ prompts_prompt.PromptTemplate.fromTemplate(combine_prompt);
 const system_combine_template = `Given the following extracted parts of a long document and a question, create a final answer. 
 If you don't know the answer, just say that you don't know. Don't try to make up an answer.
@@ -390,7 +390,7 @@ const combine_messages = [
 const CHAT_COMBINE_PROMPT = 
 /*#__PURE__*/ ChatPromptTemplate.fromPromptMessages(combine_messages);
 const map_reduce_prompts_COMBINE_PROMPT_SELECTOR = 
-/*#__PURE__*/ new ConditionalPromptSelector(map_reduce_prompts_COMBINE_PROMPT, [
+/*#__PURE__*/ new ConditionalPromptSelector(COMBINE_PROMPT, [
     [isChatModel, CHAT_COMBINE_PROMPT],
 ]);
 
@@ -475,72 +475,53 @@ const refine_prompts_QUESTION_PROMPT_SELECTOR =
 
 
 
-const loadQAChain = (llm, params = {}) => {
-    const { prompt = DEFAULT_QA_PROMPT, combineMapPrompt = DEFAULT_COMBINE_QA_PROMPT, combinePrompt = COMBINE_PROMPT, type = "stuff", verbose, } = params;
+const loadQAChain = (llm, params = { type: "stuff" }) => {
+    const { type } = params;
     if (type === "stuff") {
-        const llmChain = new LLMChain({ prompt, llm, verbose });
-        const chain = new StuffDocumentsChain({ llmChain });
-        return chain;
+        return loadQAStuffChain(llm, params);
     }
     if (type === "map_reduce") {
-        const llmChain = new LLMChain({ prompt: combineMapPrompt, llm, verbose });
-        const combineLLMChain = new LLMChain({
-            prompt: combinePrompt,
-            llm,
-            verbose,
-        });
-        const combineDocumentChain = new StuffDocumentsChain({
-            llmChain: combineLLMChain,
-            documentVariableName: "summaries",
-        });
-        const chain = new MapReduceDocumentsChain({
-            llmChain,
-            combineDocumentChain,
-        });
-        return chain;
+        return loadQAMapReduceChain(llm, params);
     }
     if (type === "refine") {
-        const { questionPrompt = QUESTION_PROMPT_SELECTOR.getPrompt(llm), refinePrompt = REFINE_PROMPT_SELECTOR.getPrompt(llm), } = params;
-        const llmChain = new LLMChain({ prompt: questionPrompt, llm, verbose });
-        const refineLLMChain = new LLMChain({ prompt: refinePrompt, llm, verbose });
-        const chain = new RefineDocumentsChain({
-            llmChain,
-            refineLLMChain,
-        });
-        return chain;
+        return loadQARefineChain(llm, params);
     }
     throw new Error(`Invalid _type: ${type}`);
 };
-const loadQAStuffChain = (llm, params = {}) => {
+function loadQAStuffChain(llm, params = {}) {
     const { prompt = QA_PROMPT_SELECTOR.getPrompt(llm), verbose } = params;
     const llmChain = new llm_chain.LLMChain({ prompt, llm, verbose });
-    const chain = new combine_docs_chain.StuffDocumentsChain({ llmChain });
+    const chain = new combine_docs_chain.StuffDocumentsChain({ llmChain, verbose });
     return chain;
-};
-const loadQAMapReduceChain = (llm, params = {}) => {
-    const { combineMapPrompt = COMBINE_QA_PROMPT_SELECTOR.getPrompt(llm), combinePrompt = COMBINE_PROMPT_SELECTOR.getPrompt(llm), verbose, } = params;
+}
+function loadQAMapReduceChain(llm, params = {}) {
+    const { combineMapPrompt = COMBINE_QA_PROMPT_SELECTOR.getPrompt(llm), combinePrompt = COMBINE_PROMPT_SELECTOR.getPrompt(llm), verbose, returnIntermediateSteps, } = params;
     const llmChain = new LLMChain({ prompt: combineMapPrompt, llm, verbose });
     const combineLLMChain = new LLMChain({ prompt: combinePrompt, llm, verbose });
     const combineDocumentChain = new StuffDocumentsChain({
         llmChain: combineLLMChain,
         documentVariableName: "summaries",
+        verbose,
     });
     const chain = new MapReduceDocumentsChain({
         llmChain,
         combineDocumentChain,
+        returnIntermediateSteps,
+        verbose,
     });
     return chain;
-};
-const loadQARefineChain = (llm, params = {}) => {
+}
+function loadQARefineChain(llm, params = {}) {
     const { questionPrompt = QUESTION_PROMPT_SELECTOR.getPrompt(llm), refinePrompt = REFINE_PROMPT_SELECTOR.getPrompt(llm), verbose, } = params;
     const llmChain = new LLMChain({ prompt: questionPrompt, llm, verbose });
     const refineLLMChain = new LLMChain({ prompt: refinePrompt, llm, verbose });
     const chain = new RefineDocumentsChain({
         llmChain,
         refineLLMChain,
+        verbose,
     });
     return chain;
-};
+}
 
 ;// CONCATENATED MODULE: ./node_modules/langchain/dist/chains/vector_db_qa.js
 

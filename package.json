@@ -29,7 +29,7 @@
     "@actions/github": "^5.1.1",
     "core-js": "^3.30.2",
     "dotenv": "^16.0.3",
-    "langchain": "^0.0.70",
+    "langchain": "^0.0.72",
     "node-fetch": "^3.3.1",
     "typeorm": "^0.3.15"
   },
