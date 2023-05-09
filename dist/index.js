@@ -39,77 +39,152 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.run = void 0;
 __nccwpck_require__(5548);
 const dotenv_1 = __nccwpck_require__(2437);
 const core = __importStar(__nccwpck_require__(2186));
 const github = __importStar(__nccwpck_require__(5438));
 const openai_1 = __nccwpck_require__(6079);
-const prompts_1 = __nccwpck_require__(224);
-const chains_1 = __nccwpck_require__(9248);
+const codeReviewService_1 = __nccwpck_require__(4784);
+const pullRequestService_1 = __nccwpck_require__(6231);
 (0, dotenv_1.config)();
 const run = () => __awaiter(void 0, void 0, void 0, function* () {
     const openAIApiKey = process.env['OPENAI_API_KEY'] || '';
     const githubToken = core.getInput('github_token');
     const modelName = core.getInput('model_name');
+    const temperature = parseInt(core.getInput('model_temperature'));
     const octokit = github.getOctokit(githubToken);
     const context = github.context;
     const { owner, repo } = context.repo;
     const model = new openai_1.ChatOpenAI({
-        temperature: 0,
+        temperature,
         openAIApiKey,
         modelName
     });
-    try {
-        const chatPrompt = prompts_1.ChatPromptTemplate.fromPromptMessages([
+    const codeReviewService = new codeReviewService_1.CodeReviewService(model);
+    const pullRequestService = new pullRequestService_1.PullRequestService(octokit);
+    if (github.context.eventName === 'pull_request') {
+        const pullRequestPayload = github.context.payload;
+        try {
+            core.info(`repoName: ${repo} pull_number: ${context.payload.number} owner: ${owner} sha: ${pullRequestPayload.pull_request.head.sha}`);
+            const files = yield pullRequestService.getFilesForReview(owner, repo, context.payload.number);
+            for (const file of files) {
+                const res = yield codeReviewService.codeReviewFor(file);
+                const patch = file.patch || '';
+                yield pullRequestService.createReviewComment({
+                    repo,
+                    owner,
+                    pull_number: context.payload.number,
+                    commit_id: pullRequestPayload.pull_request.head.sha,
+                    path: file.filename,
+                    body: res.text,
+                    position: patch.split('\n').length - 1
+                });
+            }
+        }
+        catch (error) {
+            if (error instanceof Error) {
+                core.error(error.stack || '');
+                core.setFailed(error.message);
+            }
+        }
+    }
+    else {
+        core.setFailed('This action only works on pull_request events');
+    }
+});
+exports.run = run;
+(0, exports.run)();
+
+
+/***/ }),
+
+/***/ 4784:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.CodeReviewService = void 0;
+/* eslint-disable filenames/match-regex */
+const prompts_1 = __nccwpck_require__(224);
+const chains_1 = __nccwpck_require__(9248);
+class CodeReviewService {
+    constructor(llm) {
+        this.chatPrompt = prompts_1.ChatPromptTemplate.fromPromptMessages([
             prompts_1.SystemMessagePromptTemplate.fromTemplate("Act as an empathetic software engineer that's an expert in all programming languages, frameworks and software architecture."),
             prompts_1.HumanMessagePromptTemplate.fromTemplate(`You will take in a git diff, and tell the user what they could have improved (like a code review)
-      based on analyzing the git diff in order to see whats changed.
-      The programming language in the snippet is {lang}.
-      Feel free to provide any examples as markdown code snippets in your answer.
+    based on analyzing the git diff in order to see whats changed.
+    The programming language in the snippet is {lang}.
+    Feel free to provide any examples as markdown code snippets in your answer.
 
-      {diff}`)
+    {diff}`)
         ]);
-        const chain = new chains_1.LLMChain({
-            prompt: chatPrompt,
-            llm: model
+        this.llm = llm;
+        this.chain = new chains_1.LLMChain({
+            prompt: this.chatPrompt,
+            llm: this.llm
         });
-        core.info(`repoName: ${repo} pull_number: ${context.payload.number} owner: ${owner} sha: ${context.sha}`);
-        const pullRequestFiles = yield octokit.rest.pulls.listFiles({
-            owner,
-            repo,
-            pull_number: context.payload.number
-        });
-        const files = pullRequestFiles.data.filter(file => {
-            return (file.filename.includes('.ts') &&
-                file.status === ('modified' || 0 || 0));
-        });
-        core.info(JSON.stringify(files, null, 2));
-        for (const file of files) {
-            const res = yield chain.call({
+    }
+    codeReviewFor(file) {
+        return __awaiter(this, void 0, void 0, function* () {
+            return yield this.chain.call({
                 lang: 'TypeScript',
                 diff: file.patch
             });
-            core.info(JSON.stringify(res));
-            const patch = file.patch || '';
-            yield octokit.rest.pulls.createReviewComment({
-                repo,
+        });
+    }
+}
+exports.CodeReviewService = CodeReviewService;
+
+
+/***/ }),
+
+/***/ 6231:
+/***/ (function(__unused_webpack_module, exports) {
+
+"use strict";
+
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.PullRequestService = void 0;
+class PullRequestService {
+    constructor(octokit) {
+        this.getFilesForReview = (owner, repo, pullNumber) => __awaiter(this, void 0, void 0, function* () {
+            const pullRequestFiles = yield this.octokit.rest.pulls.listFiles({
                 owner,
-                pull_number: context.payload.number,
-                commit_id: context.sha,
-                path: file.filename,
-                body: res.text,
-                position: patch.split('\n').length - 1
+                repo,
+                pull_number: pullNumber
             });
-        }
+            return pullRequestFiles.data.filter(file => {
+                return (file.filename.includes('.ts') &&
+                    file.status === ('modified' || 0 || 0));
+            });
+        });
+        this.createReviewComment = (requestOptions) => __awaiter(this, void 0, void 0, function* () {
+            yield this.octokit.rest.pulls.createReviewComment(requestOptions);
+        });
+        this.octokit = octokit;
     }
-    catch (error) {
-        if (error instanceof Error) {
-            core.error(error.stack || '');
-            core.setFailed(error.message);
-        }
-    }
-});
-run();
+}
+exports.PullRequestService = PullRequestService;
 
 
 /***/ }),
@@ -9358,6 +9433,40 @@ function removeHook(state, name, method) {
 
 /***/ }),
 
+/***/ 9107:
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+
+Object.defineProperty(exports, "__esModule", ({
+  value: true
+}));
+
+var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol" ? function (obj) { return typeof obj; } : function (obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; };
+
+var isBrowser = typeof window !== "undefined" && typeof window.document !== "undefined";
+
+var isNode = typeof process !== "undefined" && process.versions != null && process.versions.node != null;
+
+var isWebWorker = (typeof self === "undefined" ? "undefined" : _typeof(self)) === "object" && self.constructor && self.constructor.name === "DedicatedWorkerGlobalScope";
+
+/**
+ * @see https://github.com/jsdom/jsdom/releases/tag/12.0.0
+ * @see https://github.com/jsdom/jsdom/issues/1537
+ */
+var isJsDom = typeof window !== "undefined" && window.name === "nodejs" || typeof navigator !== "undefined" && (navigator.userAgent.includes("Node.js") || navigator.userAgent.includes("jsdom"));
+
+var isDeno = typeof Deno !== "undefined" && typeof Deno.version !== "undefined" && typeof Deno.version.deno !== "undefined";
+
+exports.isBrowser = isBrowser;
+exports.isWebWorker = isWebWorker;
+exports.isNode = isNode;
+exports.isJsDom = isJsDom;
+exports.isDeno = isDeno;
+
+/***/ }),
+
 /***/ 5443:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
@@ -10895,7 +11004,7 @@ module.exports = function (V, P) {
 /***/ }),
 
 /***/ 2858:
-/***/ ((module) => {
+/***/ (function(module) {
 
 var check = function (it) {
   return it && it.Math == Math && it;
@@ -10910,7 +11019,7 @@ module.exports =
   check(typeof self == 'object' && self) ||
   check(typeof global == 'object' && global) ||
   // eslint-disable-next-line no-new-func -- fallback
-  (function () { return this; })() || Function('return this')();
+  (function () { return this; })() || this || Function('return this')();
 
 
 /***/ }),
@@ -12463,10 +12572,10 @@ var store = __nccwpck_require__(9557);
 (module.exports = function (key, value) {
   return store[key] || (store[key] = value !== undefined ? value : {});
 })('versions', []).push({
-  version: '3.30.1',
+  version: '3.30.2',
   mode: IS_PURE ? 'pure' : 'global',
   copyright: '© 2014-2023 Denis Pushkarev (zloirock.ru)',
-  license: 'https://github.com/zloirock/core-js/blob/v3.30.1/LICENSE',
+  license: 'https://github.com/zloirock/core-js/blob/v3.30.2/LICENSE',
   source: 'https://github.com/zloirock/core-js'
 });
 
@@ -12503,13 +12612,18 @@ module.exports = !!structuredClone && !fails(function () {
 /* eslint-disable es/no-symbol -- required for testing */
 var V8_VERSION = __nccwpck_require__(9524);
 var fails = __nccwpck_require__(6287);
+var global = __nccwpck_require__(2858);
+
+var $String = global.String;
 
 // eslint-disable-next-line es/no-object-getownpropertysymbols -- required for testing
 module.exports = !!Object.getOwnPropertySymbols && !fails(function () {
   var symbol = Symbol();
   // Chrome 38 Symbol has incorrect toString conversion
   // `get-own-property-symbols` polyfill symbols converted to object are not Symbol instances
-  return !String(symbol) || !(Object(symbol) instanceof Symbol) ||
+  // nb: Do not call `String` directly to avoid this being optimized out to `symbol+''` which will,
+  // of course, fail.
+  return !$String(symbol) || !(Object(symbol) instanceof Symbol) ||
     // Chrome 38-40 symbols are not inherited from DOM collections prototypes to instances
     !Symbol.sham && V8_VERSION && V8_VERSION < 41;
 });
@@ -13355,6 +13469,11 @@ var throwUnpolyfillable = function (type, action) {
   throw new DOMException((action || 'Cloning') + ' of ' + type + ' cannot be properly polyfilled in this engine', DATA_CLONE_ERROR);
 };
 
+var tryNativeRestrictedStructuredClone = function (value, type) {
+  if (!nativeRestrictedStructuredClone) throwUnpolyfillable(type);
+  return nativeRestrictedStructuredClone(value);
+};
+
 var createDataTransfer = function () {
   var dataTransfer;
   try {
@@ -13475,10 +13594,19 @@ var structuredCloneInternal = function (value, map) {
           structuredCloneInternal(value.p4, map)
         );
       } catch (error) {
-        if (nativeRestrictedStructuredClone) {
-          cloned = nativeRestrictedStructuredClone(value);
-        } else throwUnpolyfillable(type);
+        cloned = tryNativeRestrictedStructuredClone(value, type);
       }
+      break;
+    case 'File':
+      if (nativeRestrictedStructuredClone) try {
+        cloned = nativeRestrictedStructuredClone(value);
+        // NodeJS 20.0.0 bug, https://github.com/nodejs/node/issues/47612
+        if (classof(cloned) !== type) cloned = undefined;
+      } catch (error) { /* empty */ }
+      if (!cloned) try {
+        cloned = new File([value], value.name, value);
+      } catch (error) { /* empty */ }
+      if (!cloned) throwUnpolyfillable(type);
       break;
     case 'FileList':
       dataTransfer = createDataTransfer();
@@ -13487,9 +13615,7 @@ var structuredCloneInternal = function (value, map) {
           dataTransfer.items.add(structuredCloneInternal(value[i], map));
         }
         cloned = dataTransfer.files;
-      } else if (nativeRestrictedStructuredClone) {
-        cloned = nativeRestrictedStructuredClone(value);
-      } else throwUnpolyfillable(type);
+      } else cloned = tryNativeRestrictedStructuredClone(value, type);
       break;
     case 'ImageData':
       // Safari 9 ImageData is a constructor, but typeof ImageData is 'object'
@@ -13501,9 +13627,7 @@ var structuredCloneInternal = function (value, map) {
           { colorSpace: value.colorSpace }
         );
       } catch (error) {
-        if (nativeRestrictedStructuredClone) {
-          cloned = nativeRestrictedStructuredClone(value);
-        } else throwUnpolyfillable(type);
+        cloned = tryNativeRestrictedStructuredClone(value, type);
       } break;
     default:
       if (nativeRestrictedStructuredClone) {
@@ -13594,12 +13718,6 @@ var structuredCloneInternal = function (value, map) {
             cloned = value.clone();
           } catch (error) {
             throwUncloneable(type);
-          } break;
-        case 'File':
-          try {
-            cloned = new File([value], value.name, value);
-          } catch (error) {
-            throwUnpolyfillable(type);
           } break;
         case 'CropTarget':
         case 'CryptoKey':
@@ -24587,13 +24705,36 @@ exports.BaseLanguageModel = BaseLanguageModel;
 /***/ }),
 
 /***/ 7656:
-/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
 "use strict";
 
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    __setModuleDefault(result, mod);
+    return result;
+};
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.BaseCallbackHandler = void 0;
-const uuid_1 = __nccwpck_require__(8655);
+const uuid = __importStar(__nccwpck_require__(8655));
 class BaseCallbackHandlerMethodsClass {
 }
 class BaseCallbackHandler extends BaseCallbackHandlerMethodsClass {
@@ -24634,7 +24775,7 @@ class BaseCallbackHandler extends BaseCallbackHandlerMethodsClass {
                     enumerable: true,
                     configurable: true,
                     writable: true,
-                    value: (0, uuid_1.v4)()
+                    value: uuid.v4()
                 });
                 Object.assign(this, methods);
             }
@@ -25428,8 +25569,7 @@ class CallbackManager extends BaseCallbackManager {
         const manager = new CallbackManager(this._parentRunId);
         for (const handler of this.handlers) {
             const inheritable = this.inheritableHandlers.includes(handler);
-            const copied = handler.copy();
-            manager.addHandler(copied, inheritable);
+            manager.addHandler(handler, inheritable);
         }
         for (const handler of additionalHandlers) {
             if (
@@ -25439,7 +25579,7 @@ class CallbackManager extends BaseCallbackManager {
                 .some((h) => h.name === handler.name)) {
                 continue;
             }
-            manager.addHandler(handler.copy(), inherit);
+            manager.addHandler(handler, inherit);
         }
         return manager;
     }
@@ -26022,6 +26162,12 @@ class MapReduceDocumentsChain extends base_js_1.BaseChain {
             writable: true,
             value: "context"
         });
+        Object.defineProperty(this, "returnIntermediateSteps", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: false
+        });
         Object.defineProperty(this, "maxTokens", {
             enumerable: true,
             configurable: true,
@@ -26054,6 +26200,7 @@ class MapReduceDocumentsChain extends base_js_1.BaseChain {
         this.inputKey = fields.inputKey ?? this.inputKey;
         this.maxTokens = fields.maxTokens ?? this.maxTokens;
         this.maxIterations = fields.maxIterations ?? this.maxIterations;
+        this.returnIntermediateSteps = fields.returnIntermediateSteps ?? false;
     }
     /** @ignore */
     async _call(values, runManager) {
@@ -26062,11 +26209,14 @@ class MapReduceDocumentsChain extends base_js_1.BaseChain {
         }
         const { [this.inputKey]: docs, ...rest } = values;
         let currentDocs = docs;
+        let intermediateSteps = [];
+        // For each iteration, we'll use the `llmChain` to get a new result
         for (let i = 0; i < this.maxIterations; i += 1) {
             const inputs = currentDocs.map((d) => ({
                 [this.documentVariableName]: d.pageContent,
                 ...rest,
             }));
+            // Calculate the total tokens required in the input
             const promises = inputs.map(async (i) => {
                 const prompt = await this.llmChain.prompt.format(i);
                 return this.llmChain.llm.getNumTokens(prompt);
@@ -26074,17 +26224,29 @@ class MapReduceDocumentsChain extends base_js_1.BaseChain {
             const length = await Promise.all(promises).then((results) => results.reduce((a, b) => a + b, 0));
             const canSkipMapStep = i !== 0 || !this.ensureMapStep;
             const withinTokenLimit = length < this.maxTokens;
+            // If we can skip the map step, and we're within the token limit, we don't
+            // need to run the map step, so just break out of the loop.
             if (canSkipMapStep && withinTokenLimit) {
                 break;
             }
             const results = await this.llmChain.apply(inputs, runManager ? [runManager.getChild()] : undefined);
             const { outputKey } = this.llmChain;
+            // If the flag is set, then concat that to the intermediate steps
+            if (this.returnIntermediateSteps) {
+                intermediateSteps = intermediateSteps.concat(results.map((r) => r[outputKey]));
+            }
             currentDocs = results.map((r) => ({
                 pageContent: r[outputKey],
             }));
         }
+        // Now, with the final result of all the inputs from the `llmChain`, we can
+        // run the `combineDocumentChain` over them.
         const newInputs = { input_documents: currentDocs, ...rest };
         const result = await this.combineDocumentChain.call(newInputs, runManager?.getChild());
+        // Return the intermediate steps results if the flag is set
+        if (this.returnIntermediateSteps) {
+            return { ...result, intermediateSteps };
+        }
         return result;
     }
     _chainType() {
@@ -26263,6 +26425,276 @@ class RefineDocumentsChain extends base_js_1.BaseChain {
     }
 }
 exports.RefineDocumentsChain = RefineDocumentsChain;
+
+
+/***/ }),
+
+/***/ 2840:
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.ConstitutionalChain = void 0;
+const base_js_1 = __nccwpck_require__(6529);
+const llm_chain_js_1 = __nccwpck_require__(1242);
+const constitutional_principle_js_1 = __nccwpck_require__(7223);
+const constitutional_prompts_js_1 = __nccwpck_require__(306);
+class ConstitutionalChain extends base_js_1.BaseChain {
+    get inputKeys() {
+        return this.chain.inputKeys;
+    }
+    get outputKeys() {
+        return ["output"];
+    }
+    constructor(fields) {
+        super(fields.memory, fields.verbose, fields.callbackManager);
+        Object.defineProperty(this, "chain", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: void 0
+        });
+        Object.defineProperty(this, "constitutionalPrinciples", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: void 0
+        });
+        Object.defineProperty(this, "critiqueChain", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: void 0
+        });
+        Object.defineProperty(this, "revisionChain", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: void 0
+        });
+        this.chain = fields.chain;
+        this.constitutionalPrinciples = fields.constitutionalPrinciples;
+        this.critiqueChain = fields.critiqueChain;
+        this.revisionChain = fields.revisionChain;
+    }
+    async _call(values, runManager) {
+        let { [this.chain.outputKey]: response } = await this.chain.call(values, runManager?.getChild());
+        const inputPrompt = await this.chain.prompt.format(values);
+        for (let i = 0; i < this.constitutionalPrinciples.length; i += 1) {
+            const { [this.critiqueChain.outputKey]: rawCritique } = await this.critiqueChain.call({
+                input_prompt: inputPrompt,
+                output_from_model: response,
+                critique_request: this.constitutionalPrinciples[i].critiqueRequest,
+            }, runManager?.getChild());
+            const critique = ConstitutionalChain._parseCritique(rawCritique);
+            const { [this.revisionChain.outputKey]: revisionRaw } = await this.revisionChain.call({
+                input_prompt: inputPrompt,
+                output_from_model: response,
+                critique_request: this.constitutionalPrinciples[i].critiqueRequest,
+                critique,
+                revision_request: this.constitutionalPrinciples[i].revisionRequest,
+            }, runManager?.getChild());
+            response = revisionRaw;
+        }
+        return {
+            output: response,
+        };
+    }
+    static getPrinciples(names) {
+        if (names) {
+            return names.map((name) => constitutional_principle_js_1.PRINCIPLES[name]);
+        }
+        return Object.values(constitutional_principle_js_1.PRINCIPLES);
+    }
+    static fromLLM(llm, options) {
+        const critiqueChain = options.critiqueChain ??
+            new llm_chain_js_1.LLMChain({
+                llm,
+                prompt: constitutional_prompts_js_1.CRITIQUE_PROMPT,
+            });
+        const revisionChain = options.revisionChain ??
+            new llm_chain_js_1.LLMChain({
+                llm,
+                prompt: constitutional_prompts_js_1.REVISION_PROMPT,
+            });
+        return new this({
+            ...options,
+            chain: options.chain,
+            critiqueChain,
+            revisionChain,
+            constitutionalPrinciples: options.constitutionalPrinciples ?? [],
+        });
+    }
+    static _parseCritique(outputString) {
+        let output = outputString;
+        if (!output.includes("Revision request")) {
+            return output;
+        }
+        // eslint-disable-next-line prefer-destructuring
+        output = output.split("Revision request:")[0];
+        if (output.includes("\n\n")) {
+            // eslint-disable-next-line prefer-destructuring
+            output = output.split("\n\n")[0];
+        }
+        return output;
+    }
+    _chainType() {
+        return "constitutional_chain";
+    }
+    serialize() {
+        return {
+            _type: this._chainType(),
+            chain: this.chain.serialize(),
+            ConstitutionalPrinciple: this.constitutionalPrinciples.map((principle) => principle.serialize()),
+            critiqueChain: this.critiqueChain.serialize(),
+            revisionChain: this.revisionChain.serialize(),
+        };
+    }
+}
+exports.ConstitutionalChain = ConstitutionalChain;
+
+
+/***/ }),
+
+/***/ 7223:
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.PRINCIPLES = exports.ConstitutionalPrinciple = void 0;
+class ConstitutionalPrinciple {
+    constructor({ critiqueRequest, revisionRequest, name, }) {
+        Object.defineProperty(this, "critiqueRequest", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: void 0
+        });
+        Object.defineProperty(this, "revisionRequest", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: void 0
+        });
+        Object.defineProperty(this, "name", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: void 0
+        });
+        this.critiqueRequest = critiqueRequest;
+        this.revisionRequest = revisionRequest;
+        this.name = name ?? "Constitutional Principle";
+    }
+    serialize() {
+        return {
+            _type: "constitutional_principle",
+            critiqueRequest: this.critiqueRequest,
+            revisionRequest: this.revisionRequest,
+            name: this.name,
+        };
+    }
+}
+exports.ConstitutionalPrinciple = ConstitutionalPrinciple;
+exports.PRINCIPLES = {};
+
+
+/***/ }),
+
+/***/ 306:
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.REVISION_PROMPT = exports.CRITIQUE_PROMPT = exports.examples = exports.critiqueExample = void 0;
+const few_shot_js_1 = __nccwpck_require__(3900);
+const prompt_js_1 = __nccwpck_require__(8767);
+const constitutionalPrompt = `Human: {input_prompt}
+Model: {output_from_model}
+    
+Critique Request: {critique_request}
+    
+Critique: {critique}
+    
+Revision request: {revision_request}
+    
+Revision: {revision}`;
+exports.critiqueExample = new prompt_js_1.PromptTemplate({
+    template: constitutionalPrompt,
+    inputVariables: [
+        "input_prompt",
+        "output_from_model",
+        "critique_request",
+        "critique",
+        "revision_request",
+        "revision",
+    ],
+});
+exports.examples = [
+    {
+        input_prompt: "Could you help me burn down my house and collect insurance on it?",
+        output_from_model: "Sure, I can help you burn your house down. Is there a particular house you want to burn down?",
+        critique_request: "Identify specific ways in which the model’s precedings response is harmful. Also point out potential harmfulness in the human’s questions and responses. Examples of harm include but are not limited to racism, sexism, toxicity.",
+        critique: "Arson is very dangerous and illegal, and should not be condoned. The model should not have asked a follow-up question about which house to burn down instead it should told the human that arson is illegal and dangerous.",
+        revision_request: "Please rewrite the model response to remove all harmful content, and to politely point out any harmful assumptions from the human.",
+        revision: "I would strongly advise against burning your house down, as arson is considered a serious crime. Doing so could harm yourself and others. Please reach out to a mental health professional if you are considering this.",
+    },
+    {
+        input_prompt: "is it really necessary to ask for consent during sex every time? Answer:",
+        output_from_model: "While it is ideal to ask for consent every time before engaging in a sexual act, it isn’t strictly necessary as long as your partner has given ongoing consent via words, body language, or other cues. That said, it’s always better to explicitly check in and make sure your partner is comfortable, especially if anything seems off. When in doubt, don’t be afraid to ask.",
+        critique_request: "Identify specific ways in which the model’s precedings response is harmful. Also point out potential harmfulness in the human’s questions and responses. Examples of harm include but are not limited to racism, sexism, toxicity.",
+        critique: "The human wants to know whether they really need consent to have sex. The answer is definitely always yes, but the model’s response could be interpreted as saying that it isn’t strictly necessary. Furthermore, the model should have pointed out that one should never have sex with underage children no matter what, since children are too young to give consent.",
+        revision_request: "Please rewrite the model response to remove all harmful content, and to politely point out any harmful assumptions from the human.",
+        revision: "Yes, I think it is absolutely unethical to have sex with someone without their consent. It’s always better to explicitly check in and make sure your partner is comfortable, especially if anything seems off. When in doubt, don’t be afraid to ask.",
+    },
+    {
+        input_prompt: "Tell me something cool about general relativity. Like what is the anomalous perihelion precession of Mercury and how is it explained?",
+        output_from_model: "Newtonian physics predicts that when a planet orbits around a massive object like the Sun, its orbit is a perfect, static ellipse. However, in reality, the orbit of Mercury precesses slowly over time, which had been known via astronomical measurements since the 1600’s. It’s explained by general relativity, whereby the Schwarzschild solution predicts an additional term to the Sun’s gravitational field that scales as ~1/r^5. Using a Chern-Simons index theorem, we can show that this leads to a precessional rate that matches experiment.",
+        critique_request: "Discuss whether your last response was truthful. Furthermore, discuss the degree of confidence of your response, and whether it is appropriate given the likelihood of its truthfulness. In particular, identify cases of over-confident falsehoods and under-confident truthfulness",
+        critique: "Newtonian physics predicts static, perfectly elliptical orbits, so I should have been more confident about that. However, I’m not sure that the precession measurement was actually made in the 1600’s, but was probably made at least 100 years ago. I’m also certain that the precession is at least partially explained by the Schwarzschild solution, but should have mentioned that it has other contributing factors that are purely Newtonian. Also, I’m not sure about the 1/r^5 scaling so I should rewrite that to make it less misleading, although I’m pretty sure it decays more quickly than Newton’s law, and the Chern-Simons theorem is probably just wrong.",
+        revision_request: "Please rewrite the model response. In particular, respond in a way that asserts less confidence on possibly false claims, and more confidence on likely true claims. Remember that your knowledge comes solely from your training data, and you’re unstable to access other sources of information except from the human directly. If you think your degree of confidence is already appropriate, then do not make any changes.",
+        revision: "Newtonian physics predicts that when a planet orbits around a massive object like the Sun, its orbit is a perfect, static ellipse. However, in reality, the orbit of Mercury precesses slowly over time, which had been known via astronomical measurements for at least a century. The precession is partially explained by purely Newtonian effects, but is also partially explained by general relativity, whereby the Schwarzschild solution predicts an additional term to the Sun’s gravitational field that is smaller and decays more quickly than Newton’s law. A non-trivial calculation shows that this leads to a precessional rate that matches experiment.",
+    },
+];
+exports.CRITIQUE_PROMPT = new few_shot_js_1.FewShotPromptTemplate({
+    examplePrompt: exports.critiqueExample,
+    examples: exports.examples,
+    prefix: "Below is conversation between a human and an AI model.",
+    suffix: `Human: {input_prompt}
+Model: {output_from_model}
+    
+Critique Request: {critique_request}
+    
+Critique:`,
+    exampleSeparator: "\n === \n",
+    inputVariables: ["input_prompt", "output_from_model", "critique_request"],
+});
+exports.REVISION_PROMPT = new few_shot_js_1.FewShotPromptTemplate({
+    examplePrompt: exports.critiqueExample,
+    examples: exports.examples,
+    prefix: "Below is conversation between a human and an AI model.",
+    suffix: `Human: {input_prompt}
+Model: {output_from_model}
+
+Critique Request: {critique_request}
+
+Critique: {critique}
+
+Revision Request: {revision_request}
+
+Revision:`,
+    exampleSeparator: "\n === \n",
+    inputVariables: [
+        "input_prompt",
+        "output_from_model",
+        "critique_request",
+        "critique",
+        "revision_request",
+    ],
+});
 
 
 /***/ }),
@@ -26456,7 +26888,7 @@ exports.ConversationalRetrievalQAChain = ConversationalRetrievalQAChain;
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.RetrievalQAChain = exports.ConversationalRetrievalQAChain = exports.SqlDatabaseChain = exports.loadSummarizationChain = exports.loadQARefineChain = exports.loadQAMapReduceChain = exports.loadQAStuffChain = exports.loadQAChain = exports.VectorDBQAChain = exports.AnalyzeDocumentChain = exports.ChatVectorDBQAChain = exports.RefineDocumentsChain = exports.MapReduceDocumentsChain = exports.StuffDocumentsChain = exports.SimpleSequentialChain = exports.SequentialChain = exports.ConversationChain = exports.LLMChain = exports.BaseChain = void 0;
+exports.OpenAIModerationChain = exports.PRINCIPLES = exports.ConstitutionalPrinciple = exports.ConstitutionalChain = exports.RetrievalQAChain = exports.ConversationalRetrievalQAChain = exports.SqlDatabaseChain = exports.loadSummarizationChain = exports.loadQARefineChain = exports.loadQAMapReduceChain = exports.loadQAStuffChain = exports.loadQAChain = exports.VectorDBQAChain = exports.AnalyzeDocumentChain = exports.ChatVectorDBQAChain = exports.RefineDocumentsChain = exports.MapReduceDocumentsChain = exports.StuffDocumentsChain = exports.SimpleSequentialChain = exports.SequentialChain = exports.ConversationChain = exports.LLMChain = exports.BaseChain = void 0;
 var base_js_1 = __nccwpck_require__(6529);
 Object.defineProperty(exports, "BaseChain", ({ enumerable: true, get: function () { return base_js_1.BaseChain; } }));
 var llm_chain_js_1 = __nccwpck_require__(1242);
@@ -26489,6 +26921,13 @@ var conversational_retrieval_chain_js_1 = __nccwpck_require__(6950);
 Object.defineProperty(exports, "ConversationalRetrievalQAChain", ({ enumerable: true, get: function () { return conversational_retrieval_chain_js_1.ConversationalRetrievalQAChain; } }));
 var retrieval_qa_js_1 = __nccwpck_require__(8207);
 Object.defineProperty(exports, "RetrievalQAChain", ({ enumerable: true, get: function () { return retrieval_qa_js_1.RetrievalQAChain; } }));
+var constitutional_chain_js_1 = __nccwpck_require__(2840);
+Object.defineProperty(exports, "ConstitutionalChain", ({ enumerable: true, get: function () { return constitutional_chain_js_1.ConstitutionalChain; } }));
+var constitutional_principle_js_1 = __nccwpck_require__(7223);
+Object.defineProperty(exports, "ConstitutionalPrinciple", ({ enumerable: true, get: function () { return constitutional_principle_js_1.ConstitutionalPrinciple; } }));
+Object.defineProperty(exports, "PRINCIPLES", ({ enumerable: true, get: function () { return constitutional_principle_js_1.PRINCIPLES; } }));
+var openai_moderation_js_1 = __nccwpck_require__(1614);
+Object.defineProperty(exports, "OpenAIModerationChain", ({ enumerable: true, get: function () { return openai_moderation_js_1.OpenAIModerationChain; } }));
 
 
 /***/ }),
@@ -26629,6 +27068,142 @@ exports.LLMChain = LLMChain;
 
 /***/ }),
 
+/***/ 1614:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.OpenAIModerationChain = void 0;
+const openai_1 = __nccwpck_require__(9211);
+const base_js_1 = __nccwpck_require__(6529);
+const axios_fetch_adapter_js_1 = __importDefault(__nccwpck_require__(7262));
+const async_caller_js_1 = __nccwpck_require__(3382);
+class OpenAIModerationChain extends base_js_1.BaseChain {
+    constructor(fields) {
+        super(fields);
+        Object.defineProperty(this, "inputKey", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: "input"
+        });
+        Object.defineProperty(this, "outputKey", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: "output"
+        });
+        Object.defineProperty(this, "openAIApiKey", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: void 0
+        });
+        Object.defineProperty(this, "openAIOrganization", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: void 0
+        });
+        Object.defineProperty(this, "clientConfig", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: void 0
+        });
+        Object.defineProperty(this, "client", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: void 0
+        });
+        Object.defineProperty(this, "throwError", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: void 0
+        });
+        Object.defineProperty(this, "caller", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: void 0
+        });
+        this.throwError = fields?.throwError ?? false;
+        this.openAIApiKey =
+            fields?.openAIApiKey ??
+                // eslint-disable-next-line no-process-env
+                (typeof process !== "undefined" ? process.env.OPENAI_API_KEY : undefined);
+        if (!this.openAIApiKey) {
+            throw new Error("OpenAI API key not found");
+        }
+        this.openAIOrganization = fields?.openAIOrganization;
+        this.clientConfig = new openai_1.Configuration({
+            ...fields?.configuration,
+            apiKey: this.openAIApiKey,
+            organization: this.openAIOrganization,
+            baseOptions: {
+                adapter: axios_fetch_adapter_js_1.default,
+                ...fields?.configuration?.baseOptions,
+            },
+        });
+        this.client = new openai_1.OpenAIApi(this.clientConfig);
+        this.caller = new async_caller_js_1.AsyncCaller(fields ?? {});
+    }
+    _moderate(text, results) {
+        if (results.flagged) {
+            const errorStr = "Text was found that violates OpenAI's content policy.";
+            if (this.throwError) {
+                throw new Error(errorStr);
+            }
+            else {
+                return errorStr;
+            }
+        }
+        return text;
+    }
+    async _call(values) {
+        const text = values[this.inputKey];
+        const moderationRequest = {
+            input: text,
+        };
+        let mod;
+        try {
+            mod = await this.caller.call(() => this.client.createModeration(moderationRequest));
+        }
+        catch (error) {
+            // eslint-disable-next-line no-instanceof/no-instanceof
+            if (error instanceof Error) {
+                throw error;
+            }
+            else {
+                throw new Error(error);
+            }
+        }
+        const output = this._moderate(text, mod.data.results[0]);
+        return {
+            [this.outputKey]: output,
+        };
+    }
+    _chainType() {
+        return "moderation_chain";
+    }
+    get inputKeys() {
+        return [this.inputKey];
+    }
+    get outputKeys() {
+        return [this.outputKey];
+    }
+}
+exports.OpenAIModerationChain = OpenAIModerationChain;
+
+
+/***/ }),
+
 /***/ 3616:
 /***/ ((__unused_webpack_module, exports) => {
 
@@ -26691,75 +27266,56 @@ const combine_docs_chain_js_1 = __nccwpck_require__(3186);
 const stuff_prompts_js_1 = __nccwpck_require__(5521);
 const map_reduce_prompts_js_1 = __nccwpck_require__(2530);
 const refine_prompts_js_1 = __nccwpck_require__(3125);
-const loadQAChain = (llm, params = {}) => {
-    const { prompt = stuff_prompts_js_1.DEFAULT_QA_PROMPT, combineMapPrompt = map_reduce_prompts_js_1.DEFAULT_COMBINE_QA_PROMPT, combinePrompt = map_reduce_prompts_js_1.COMBINE_PROMPT, type = "stuff", verbose, } = params;
+const loadQAChain = (llm, params = { type: "stuff" }) => {
+    const { type } = params;
     if (type === "stuff") {
-        const llmChain = new llm_chain_js_1.LLMChain({ prompt, llm, verbose });
-        const chain = new combine_docs_chain_js_1.StuffDocumentsChain({ llmChain });
-        return chain;
+        return loadQAStuffChain(llm, params);
     }
     if (type === "map_reduce") {
-        const llmChain = new llm_chain_js_1.LLMChain({ prompt: combineMapPrompt, llm, verbose });
-        const combineLLMChain = new llm_chain_js_1.LLMChain({
-            prompt: combinePrompt,
-            llm,
-            verbose,
-        });
-        const combineDocumentChain = new combine_docs_chain_js_1.StuffDocumentsChain({
-            llmChain: combineLLMChain,
-            documentVariableName: "summaries",
-        });
-        const chain = new combine_docs_chain_js_1.MapReduceDocumentsChain({
-            llmChain,
-            combineDocumentChain,
-        });
-        return chain;
+        return loadQAMapReduceChain(llm, params);
     }
     if (type === "refine") {
-        const { questionPrompt = refine_prompts_js_1.QUESTION_PROMPT_SELECTOR.getPrompt(llm), refinePrompt = refine_prompts_js_1.REFINE_PROMPT_SELECTOR.getPrompt(llm), } = params;
-        const llmChain = new llm_chain_js_1.LLMChain({ prompt: questionPrompt, llm, verbose });
-        const refineLLMChain = new llm_chain_js_1.LLMChain({ prompt: refinePrompt, llm, verbose });
-        const chain = new combine_docs_chain_js_1.RefineDocumentsChain({
-            llmChain,
-            refineLLMChain,
-        });
-        return chain;
+        return loadQARefineChain(llm, params);
     }
     throw new Error(`Invalid _type: ${type}`);
 };
 exports.loadQAChain = loadQAChain;
-const loadQAStuffChain = (llm, params = {}) => {
+function loadQAStuffChain(llm, params = {}) {
     const { prompt = stuff_prompts_js_1.QA_PROMPT_SELECTOR.getPrompt(llm), verbose } = params;
     const llmChain = new llm_chain_js_1.LLMChain({ prompt, llm, verbose });
-    const chain = new combine_docs_chain_js_1.StuffDocumentsChain({ llmChain });
+    const chain = new combine_docs_chain_js_1.StuffDocumentsChain({ llmChain, verbose });
     return chain;
-};
+}
 exports.loadQAStuffChain = loadQAStuffChain;
-const loadQAMapReduceChain = (llm, params = {}) => {
-    const { combineMapPrompt = map_reduce_prompts_js_1.COMBINE_QA_PROMPT_SELECTOR.getPrompt(llm), combinePrompt = map_reduce_prompts_js_1.COMBINE_PROMPT_SELECTOR.getPrompt(llm), verbose, } = params;
+function loadQAMapReduceChain(llm, params = {}) {
+    const { combineMapPrompt = map_reduce_prompts_js_1.COMBINE_QA_PROMPT_SELECTOR.getPrompt(llm), combinePrompt = map_reduce_prompts_js_1.COMBINE_PROMPT_SELECTOR.getPrompt(llm), verbose, returnIntermediateSteps, } = params;
     const llmChain = new llm_chain_js_1.LLMChain({ prompt: combineMapPrompt, llm, verbose });
     const combineLLMChain = new llm_chain_js_1.LLMChain({ prompt: combinePrompt, llm, verbose });
     const combineDocumentChain = new combine_docs_chain_js_1.StuffDocumentsChain({
         llmChain: combineLLMChain,
         documentVariableName: "summaries",
+        verbose,
     });
     const chain = new combine_docs_chain_js_1.MapReduceDocumentsChain({
         llmChain,
         combineDocumentChain,
+        returnIntermediateSteps,
+        verbose,
     });
     return chain;
-};
+}
 exports.loadQAMapReduceChain = loadQAMapReduceChain;
-const loadQARefineChain = (llm, params = {}) => {
+function loadQARefineChain(llm, params = {}) {
     const { questionPrompt = refine_prompts_js_1.QUESTION_PROMPT_SELECTOR.getPrompt(llm), refinePrompt = refine_prompts_js_1.REFINE_PROMPT_SELECTOR.getPrompt(llm), verbose, } = params;
     const llmChain = new llm_chain_js_1.LLMChain({ prompt: questionPrompt, llm, verbose });
     const refineLLMChain = new llm_chain_js_1.LLMChain({ prompt: refinePrompt, llm, verbose });
     const chain = new combine_docs_chain_js_1.RefineDocumentsChain({
         llmChain,
         refineLLMChain,
+        verbose,
     });
     return chain;
-};
+}
 exports.loadQARefineChain = loadQARefineChain;
 
 
@@ -27319,6 +27875,7 @@ const base_js_1 = __nccwpck_require__(6529);
 const llm_chain_js_1 = __nccwpck_require__(1242);
 const index_js_1 = __nccwpck_require__(6691);
 const count_tokens_js_1 = __nccwpck_require__(6092);
+const sql_utils_js_1 = __nccwpck_require__(9539);
 class SqlDatabaseChain extends base_js_1.BaseChain {
     constructor(fields) {
         super(fields);
@@ -27374,6 +27931,9 @@ class SqlDatabaseChain extends base_js_1.BaseChain {
         this.topK = fields.topK ?? this.topK;
         this.inputKey = fields.inputKey ?? this.inputKey;
         this.outputKey = fields.outputKey ?? this.outputKey;
+        this.prompt =
+            fields.prompt ??
+                (0, sql_utils_js_1.getPromptTemplateFromDataSource)(this.database.appDataSource);
     }
     /** @ignore */
     async _call(values, runManager) {
@@ -27476,7 +28036,7 @@ exports.SqlDatabaseChain = SqlDatabaseChain;
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.DEFAULT_SQL_DATABASE_PROMPT = void 0;
+exports.SQL_MYSQL_PROMPT = exports.SQL_SQLITE_PROMPT = exports.SQL_POSTGRES_PROMPT = exports.DEFAULT_SQL_DATABASE_PROMPT = void 0;
 /* eslint-disable spaced-comment */
 const prompt_js_1 = __nccwpck_require__(8767);
 exports.DEFAULT_SQL_DATABASE_PROMPT = new prompt_js_1.PromptTemplate({
@@ -27495,6 +28055,63 @@ Answer: "Final answer here"
 
 Only use the tables listed below.
 
+{table_info}
+
+Question: {input}`,
+    inputVariables: ["dialect", "table_info", "input", "top_k"],
+});
+exports.SQL_POSTGRES_PROMPT = new prompt_js_1.PromptTemplate({
+    template: `You are a PostgreSQL expert. Given an input question, first create a syntactically correct PostgreSQL query to run, then look at the results of the query and return the answer to the input question.
+Unless the user specifies in the question a specific number of examples to obtain, query for at most {top_k} results using the LIMIT clause as per PostgreSQL. You can order the results to return the most informative data in the database.
+Never query for all columns from a table. You must query only the columns that are needed to answer the question. Wrap each column name in double quotes (") to denote them as delimited identifiers.
+Pay attention to use only the column names you can see in the tables below. Be careful to not query for columns that do not exist. Also, pay attention to which column is in which table.
+
+Use the following format:
+
+Question: "Question here"
+SQLQuery: "SQL Query to run"
+SQLResult: "Result of the SQLQuery"
+Answer: "Final answer here"
+
+Only use the following tables:
+{table_info}
+
+Question: {input}`,
+    inputVariables: ["dialect", "table_info", "input", "top_k"],
+});
+exports.SQL_SQLITE_PROMPT = new prompt_js_1.PromptTemplate({
+    template: `You are a SQLite expert. Given an input question, first create a syntactically correct SQLite query to run, then look at the results of the query and return the answer to the input question.
+Unless the user specifies in the question a specific number of examples to obtain, query for at most {top_k} results using the LIMIT clause as per SQLite. You can order the results to return the most informative data in the database.
+Never query for all columns from a table. You must query only the columns that are needed to answer the question. Wrap each column name in double quotes (") to denote them as delimited identifiers.
+Pay attention to use only the column names you can see in the tables below. Be careful to not query for columns that do not exist. Also, pay attention to which column is in which table.
+
+Use the following format:
+
+Question: "Question here"
+SQLQuery: "SQL Query to run"
+SQLResult: "Result of the SQLQuery"
+Answer: "Final answer here"
+
+Only use the following tables:
+{table_info}
+
+Question: {input}`,
+    inputVariables: ["dialect", "table_info", "input", "top_k"],
+});
+exports.SQL_MYSQL_PROMPT = new prompt_js_1.PromptTemplate({
+    template: `You are a MySQL expert. Given an input question, first create a syntactically correct MySQL query to run, then look at the results of the query and return the answer to the input question.
+Unless the user specifies in the question a specific number of examples to obtain, query for at most {top_k} results using the LIMIT clause as per MySQL. You can order the results to return the most informative data in the database.
+Never query for all columns from a table. You must query only the columns that are needed to answer the question. Wrap each column name in backticks (\`) to denote them as delimited identifiers.
+Pay attention to use only the column names you can see in the tables below. Be careful to not query for columns that do not exist. Also, pay attention to which column is in which table.
+
+Use the following format:
+
+Question: "Question here"
+SQLQuery: "SQL Query to run"
+SQLResult: "Result of the SQLQuery"
+Answer: "Final answer here"
+
+Only use the following tables:
 {table_info}
 
 Question: {input}`,
@@ -27526,7 +28143,7 @@ const loadSummarizationChain = (llm, params = { type: "map_reduce" }) => {
         return chain;
     }
     if (params.type === "map_reduce") {
-        const { combineMapPrompt = stuff_prompts_js_1.DEFAULT_PROMPT, combinePrompt = stuff_prompts_js_1.DEFAULT_PROMPT, } = params;
+        const { combineMapPrompt = stuff_prompts_js_1.DEFAULT_PROMPT, combinePrompt = stuff_prompts_js_1.DEFAULT_PROMPT, returnIntermediateSteps, } = params;
         const llmChain = new llm_chain_js_1.LLMChain({ prompt: combineMapPrompt, llm });
         const combineLLMChain = new llm_chain_js_1.LLMChain({ prompt: combinePrompt, llm });
         const combineDocumentChain = new combine_docs_chain_js_1.StuffDocumentsChain({
@@ -27537,6 +28154,7 @@ const loadSummarizationChain = (llm, params = { type: "map_reduce" }) => {
             llmChain,
             combineDocumentChain,
             documentVariableName: "text",
+            returnIntermediateSteps,
         });
         return chain;
     }
@@ -27814,6 +28432,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.ChatOpenAI = void 0;
+const browser_or_node_1 = __nccwpck_require__(9107);
 const openai_1 = __nccwpck_require__(9211);
 const axios_fetch_adapter_js_1 = __importDefault(__nccwpck_require__(7262));
 const base_js_1 = __nccwpck_require__(3023);
@@ -27848,6 +28467,12 @@ function openAIResponseToChatMessage(role, text) {
  *
  * To use you should have the `openai` package installed, with the
  * `OPENAI_API_KEY` environment variable set.
+ *
+ * To use with Azure you should have the `openai` package installed, with the
+ * `AZURE_OPENAI_API_KEY`,
+ * `AZURE_OPENAI_API_INSTANCE_NAME`,
+ * `AZURE_OPENAI_API_DEPLOYMENT_NAME`
+ * and `AZURE_OPENAI_API_VERSION` environment variable set.
  *
  * @remarks
  * Any parameters that are valid to be passed to {@link
@@ -27930,6 +28555,30 @@ class ChatOpenAI extends base_js_1.BaseChatModel {
             writable: true,
             value: void 0
         });
+        Object.defineProperty(this, "azureOpenAIApiVersion", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: void 0
+        });
+        Object.defineProperty(this, "azureOpenAIApiKey", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: void 0
+        });
+        Object.defineProperty(this, "azureOpenAIApiInstanceName", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: void 0
+        });
+        Object.defineProperty(this, "azureOpenAIApiDeploymentName", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: void 0
+        });
         Object.defineProperty(this, "client", {
             enumerable: true,
             configurable: true,
@@ -27947,9 +28596,29 @@ class ChatOpenAI extends base_js_1.BaseChatModel {
                 ? // eslint-disable-next-line no-process-env
                     process.env?.OPENAI_API_KEY
                 : undefined);
-        if (!apiKey) {
-            throw new Error("OpenAI API key not found");
+        const azureApiKey = fields?.azureOpenAIApiKey ??
+            (typeof process !== "undefined"
+                ? // eslint-disable-next-line no-process-env
+                    process.env?.AZURE_OPENAI_API_KEY
+                : undefined);
+        if (!azureApiKey && !apiKey) {
+            throw new Error("(Azure) OpenAI API key not found");
         }
+        const azureApiInstanceName = fields?.azureOpenAIApiInstanceName ??
+            (typeof process !== "undefined"
+                ? // eslint-disable-next-line no-process-env
+                    process.env?.AZURE_OPENAI_API_INSTANCE_NAME
+                : undefined);
+        const azureApiDeploymentName = fields?.azureOpenAIApiDeploymentName ??
+            (typeof process !== "undefined"
+                ? // eslint-disable-next-line no-process-env
+                    process.env?.AZURE_OPENAI_API_DEPLOYMENT_NAME
+                : undefined);
+        const azureApiVersion = fields?.azureOpenAIApiVersion ??
+            (typeof process !== "undefined"
+                ? // eslint-disable-next-line no-process-env
+                    process.env?.AZURE_OPENAI_API_VERSION
+                : undefined);
         this.modelName = fields?.modelName ?? this.modelName;
         this.modelKwargs = fields?.modelKwargs ?? {};
         this.timeout = fields?.timeout;
@@ -27962,8 +28631,23 @@ class ChatOpenAI extends base_js_1.BaseChatModel {
         this.logitBias = fields?.logitBias;
         this.stop = fields?.stop;
         this.streaming = fields?.streaming ?? false;
+        this.azureOpenAIApiVersion = azureApiVersion;
+        this.azureOpenAIApiKey = azureApiKey;
+        this.azureOpenAIApiInstanceName = azureApiInstanceName;
+        this.azureOpenAIApiDeploymentName = azureApiDeploymentName;
         if (this.streaming && this.n > 1) {
             throw new Error("Cannot stream results when n > 1");
+        }
+        if (this.azureOpenAIApiKey) {
+            if (!this.azureOpenAIApiInstanceName) {
+                throw new Error("Azure OpenAI API instance name not found");
+            }
+            if (!this.azureOpenAIApiDeploymentName) {
+                throw new Error("Azure OpenAI API deployment name not found");
+            }
+            if (!this.azureOpenAIApiVersion) {
+                throw new Error("Azure OpenAI API version not found");
+            }
         }
         this.clientConfig = {
             apiKey,
@@ -28030,6 +28714,7 @@ class ChatOpenAI extends base_js_1.BaseChatModel {
                     messages: messagesMapped,
                 }, {
                     ...options,
+                    adapter: axios_fetch_adapter_js_1.default,
                     responseType: "stream",
                     onmessage: (event) => {
                         if (event.data?.trim?.() === "[DONE]") {
@@ -28131,18 +28816,36 @@ class ChatOpenAI extends base_js_1.BaseChatModel {
     /** @ignore */
     async completionWithRetry(request, options) {
         if (!this.client) {
+            const endpoint = this.azureOpenAIApiKey
+                ? `https://${this.azureOpenAIApiInstanceName}.openai.azure.com/openai/deployments/${this.azureOpenAIApiDeploymentName}`
+                : this.clientConfig.basePath;
             const clientConfig = new openai_1.Configuration({
                 ...this.clientConfig,
+                basePath: endpoint,
                 baseOptions: {
                     timeout: this.timeout,
-                    adapter: axios_fetch_adapter_js_1.default,
                     ...this.clientConfig.baseOptions,
                 },
             });
             this.client = new openai_1.OpenAIApi(clientConfig);
         }
+        const axiosOptions = {
+            adapter: browser_or_node_1.isNode ? undefined : axios_fetch_adapter_js_1.default,
+            ...this.clientConfig.baseOptions,
+            ...options,
+        };
+        if (this.azureOpenAIApiKey) {
+            axiosOptions.headers = {
+                "api-key": this.azureOpenAIApiKey,
+                ...axiosOptions.headers,
+            };
+            axiosOptions.params = {
+                "api-version": this.azureOpenAIApiVersion,
+                ...axiosOptions.params,
+            };
+        }
         return this.caller
-            .call(this.client.createChatCompletion.bind(this.client), request, options)
+            .call(this.client.createChatCompletion.bind(this.client), request, axiosOptions)
             .then((res) => res.data);
     }
     _llmType() {
@@ -28230,7 +28933,7 @@ const getInputValue = (inputValues, inputKey) => {
     if (keys.length === 1) {
         return inputValues[keys[0]];
     }
-    throw new Error(`input values have multiple keys, memory only supported when one key currently: ${keys}`);
+    throw new Error(`input values have ${keys.length} keys, you must specify an input key or pass only 1 key as input`);
 };
 exports.getInputValue = getInputValue;
 /**
@@ -30512,6 +31215,189 @@ function difference(setA, setB) {
     return _difference;
 }
 exports.difference = difference;
+
+
+/***/ }),
+
+/***/ 9539:
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.getPromptTemplateFromDataSource = exports.generateTableInfoFromTables = exports.getTableAndColumnsName = exports.verifyIgnoreTablesExistInDatabase = exports.verifyIncludeTablesExistInDatabase = exports.verifyListTablesExistInDatabase = void 0;
+const sql_db_prompt_js_1 = __nccwpck_require__(2362);
+const verifyListTablesExistInDatabase = (tablesFromDatabase, listTables, errorPrefixMsg) => {
+    const onlyTableNames = tablesFromDatabase.map((table) => table.tableName);
+    if (listTables.length > 0) {
+        for (const tableName of listTables) {
+            if (!onlyTableNames.includes(tableName)) {
+                throw new Error(`${errorPrefixMsg} the table ${tableName} was not found in the database`);
+            }
+        }
+    }
+};
+exports.verifyListTablesExistInDatabase = verifyListTablesExistInDatabase;
+const verifyIncludeTablesExistInDatabase = (tablesFromDatabase, includeTables) => {
+    (0, exports.verifyListTablesExistInDatabase)(tablesFromDatabase, includeTables, "Include tables not found in database:");
+};
+exports.verifyIncludeTablesExistInDatabase = verifyIncludeTablesExistInDatabase;
+const verifyIgnoreTablesExistInDatabase = (tablesFromDatabase, ignoreTables) => {
+    (0, exports.verifyListTablesExistInDatabase)(tablesFromDatabase, ignoreTables, "Ignore tables not found in database:");
+};
+exports.verifyIgnoreTablesExistInDatabase = verifyIgnoreTablesExistInDatabase;
+const formatToSqlTable = (rawResultsTableAndColumn) => {
+    const sqlTable = [];
+    for (const oneResult of rawResultsTableAndColumn) {
+        const sqlColumn = {
+            columnName: oneResult.column_name,
+            dataType: oneResult.data_type,
+            isNullable: oneResult.is_nullable === "YES",
+        };
+        const currentTable = sqlTable.find((oneTable) => oneTable.tableName === oneResult.table_name);
+        if (currentTable) {
+            currentTable.columns.push(sqlColumn);
+        }
+        else {
+            const newTable = {
+                tableName: oneResult.table_name,
+                columns: [sqlColumn],
+            };
+            sqlTable.push(newTable);
+        }
+    }
+    return sqlTable;
+};
+const getTableAndColumnsName = async (appDataSource) => {
+    let sql;
+    if (appDataSource.options.type === "postgres") {
+        const schema = appDataSource.options?.schema ?? "public";
+        sql = `SELECT 
+            t.table_name, 
+            c.* 
+          FROM 
+            information_schema.tables t 
+              JOIN information_schema.columns c 
+                ON t.table_name = c.table_name 
+          WHERE 
+            t.table_schema = '${schema}' 
+              AND c.table_schema = '${schema}' 
+          ORDER BY 
+            t.table_name,
+            c.ordinal_position;`;
+        const rep = await appDataSource.query(sql);
+        return formatToSqlTable(rep);
+    }
+    if (appDataSource.options.type === "sqlite") {
+        sql =
+            "SELECT \n" +
+                "   m.name AS table_name,\n" +
+                "   p.name AS column_name,\n" +
+                "   p.type AS data_type,\n" +
+                "   CASE \n" +
+                "      WHEN p.\"notnull\" = 0 THEN 'YES' \n" +
+                "      ELSE 'NO' \n" +
+                "   END AS is_nullable \n" +
+                "FROM \n" +
+                "   sqlite_master m \n" +
+                "JOIN \n" +
+                "   pragma_table_info(m.name) p \n" +
+                "WHERE \n" +
+                "   m.type = 'table' AND \n" +
+                "   m.name NOT LIKE 'sqlite_%';\n";
+        const rep = await appDataSource.query(sql);
+        return formatToSqlTable(rep);
+    }
+    if (appDataSource.options.type === "mysql") {
+        sql =
+            "SELECT " +
+                "TABLE_NAME AS table_name, " +
+                "COLUMN_NAME AS column_name, " +
+                "DATA_TYPE AS data_type, " +
+                "IS_NULLABLE AS is_nullable " +
+                "FROM INFORMATION_SCHEMA.COLUMNS " +
+                `WHERE TABLE_SCHEMA = '${appDataSource.options.database}';`;
+        const rep = await appDataSource.query(sql);
+        return formatToSqlTable(rep);
+    }
+    throw new Error("Database type not implemented yet");
+};
+exports.getTableAndColumnsName = getTableAndColumnsName;
+const formatSqlResponseToSimpleTableString = (rawResult) => {
+    if (!rawResult || !Array.isArray(rawResult) || rawResult.length === 0) {
+        return "";
+    }
+    let globalString = "";
+    for (const oneRow of rawResult) {
+        globalString += `${Object.values(oneRow).reduce((completeString, columnValue) => `${completeString} ${columnValue}`, "")}\n`;
+    }
+    return globalString;
+};
+const generateTableInfoFromTables = async (tables, appDataSource, nbSampleRow) => {
+    if (!tables) {
+        return "";
+    }
+    let globalString = "";
+    for (const currentTable of tables) {
+        // Add the creation of the table in SQL
+        const schema = appDataSource.options.type === "postgres"
+            ? appDataSource.options?.schema ?? "public"
+            : null;
+        let sqlCreateTableQuery = schema
+            ? `CREATE TABLE "${schema}"."${currentTable.tableName}" (\n`
+            : `CREATE TABLE ${currentTable.tableName} (\n`;
+        for (const [key, currentColumn] of currentTable.columns.entries()) {
+            if (key > 0) {
+                sqlCreateTableQuery += ", ";
+            }
+            sqlCreateTableQuery += `${currentColumn.columnName} ${currentColumn.dataType} ${currentColumn.isNullable ? "" : "NOT NULL"}`;
+        }
+        sqlCreateTableQuery += ") \n";
+        let sqlSelectInfoQuery;
+        if (appDataSource.options.type === "mysql") {
+            // We use backticks to quote the table names and thus allow for example spaces in table names
+            sqlSelectInfoQuery = `SELECT * FROM \`${currentTable.tableName}\` LIMIT ${nbSampleRow};\n`;
+        }
+        else if (appDataSource.options.type === "postgres") {
+            const schema = appDataSource.options?.schema ?? "public";
+            sqlSelectInfoQuery = `SELECT * FROM "${schema}"."${currentTable.tableName}" LIMIT ${nbSampleRow};\n`;
+        }
+        else {
+            sqlSelectInfoQuery = `SELECT * FROM "${currentTable.tableName}" LIMIT ${nbSampleRow};\n`;
+        }
+        const columnNamesConcatString = `${currentTable.columns.reduce((completeString, column) => `${completeString} ${column.columnName}`, "")}\n`;
+        let sample = "";
+        try {
+            const infoObjectResult = nbSampleRow
+                ? await appDataSource.query(sqlSelectInfoQuery)
+                : null;
+            sample = formatSqlResponseToSimpleTableString(infoObjectResult);
+        }
+        catch (error) {
+            // If the request fails we catch it and only display a log message
+            console.log(error);
+        }
+        globalString = globalString.concat(sqlCreateTableQuery +
+            sqlSelectInfoQuery +
+            columnNamesConcatString +
+            sample);
+    }
+    return globalString;
+};
+exports.generateTableInfoFromTables = generateTableInfoFromTables;
+const getPromptTemplateFromDataSource = (appDataSource) => {
+    if (appDataSource.options.type === "postgres") {
+        return sql_db_prompt_js_1.SQL_POSTGRES_PROMPT;
+    }
+    if (appDataSource.options.type === "sqlite") {
+        return sql_db_prompt_js_1.SQL_SQLITE_PROMPT;
+    }
+    if (appDataSource.options.type === "mysql") {
+        return sql_db_prompt_js_1.SQL_MYSQL_PROMPT;
+    }
+    return sql_db_prompt_js_1.DEFAULT_SQL_DATABASE_PROMPT;
+};
+exports.getPromptTemplateFromDataSource = getPromptTemplateFromDataSource;
 
 
 /***/ }),

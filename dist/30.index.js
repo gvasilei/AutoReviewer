@@ -14,6 +14,8 @@ __webpack_require__.d(__webpack_exports__, {
   "ChatOpenAI": () => (/* binding */ ChatOpenAI)
 });
 
+// EXTERNAL MODULE: ./node_modules/browser-or-node/lib/index.js
+var lib = __webpack_require__(9107);
 // EXTERNAL MODULE: ./node_modules/openai/dist/index.js
 var dist = __webpack_require__(9211);
 // EXTERNAL MODULE: ./node_modules/axios/index.js
@@ -593,7 +595,7 @@ const getInputValue = (inputValues, inputKey) => {
     if (keys.length === 1) {
         return inputValues[keys[0]];
     }
-    throw new Error(`input values have multiple keys, memory only supported when one key currently: ${keys}`);
+    throw new Error(`input values have ${keys.length} keys, you must specify an input key or pass only 1 key as input`);
 };
 /**
  * This function is used by memory classes to get a string representation
@@ -706,6 +708,7 @@ var count_tokens = __webpack_require__(8393);
 
 
 
+
 function messageTypeToOpenAIRole(type) {
     switch (type) {
         case "system":
@@ -735,6 +738,12 @@ function openAIResponseToChatMessage(role, text) {
  *
  * To use you should have the `openai` package installed, with the
  * `OPENAI_API_KEY` environment variable set.
+ *
+ * To use with Azure you should have the `openai` package installed, with the
+ * `AZURE_OPENAI_API_KEY`,
+ * `AZURE_OPENAI_API_INSTANCE_NAME`,
+ * `AZURE_OPENAI_API_DEPLOYMENT_NAME`
+ * and `AZURE_OPENAI_API_VERSION` environment variable set.
  *
  * @remarks
  * Any parameters that are valid to be passed to {@link
@@ -817,6 +826,30 @@ class ChatOpenAI extends BaseChatModel {
             writable: true,
             value: void 0
         });
+        Object.defineProperty(this, "azureOpenAIApiVersion", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: void 0
+        });
+        Object.defineProperty(this, "azureOpenAIApiKey", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: void 0
+        });
+        Object.defineProperty(this, "azureOpenAIApiInstanceName", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: void 0
+        });
+        Object.defineProperty(this, "azureOpenAIApiDeploymentName", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: void 0
+        });
         Object.defineProperty(this, "client", {
             enumerable: true,
             configurable: true,
@@ -834,9 +867,29 @@ class ChatOpenAI extends BaseChatModel {
                 ? // eslint-disable-next-line no-process-env
                     process.env?.OPENAI_API_KEY
                 : undefined);
-        if (!apiKey) {
-            throw new Error("OpenAI API key not found");
+        const azureApiKey = fields?.azureOpenAIApiKey ??
+            (typeof process !== "undefined"
+                ? // eslint-disable-next-line no-process-env
+                    process.env?.AZURE_OPENAI_API_KEY
+                : undefined);
+        if (!azureApiKey && !apiKey) {
+            throw new Error("(Azure) OpenAI API key not found");
         }
+        const azureApiInstanceName = fields?.azureOpenAIApiInstanceName ??
+            (typeof process !== "undefined"
+                ? // eslint-disable-next-line no-process-env
+                    process.env?.AZURE_OPENAI_API_INSTANCE_NAME
+                : undefined);
+        const azureApiDeploymentName = fields?.azureOpenAIApiDeploymentName ??
+            (typeof process !== "undefined"
+                ? // eslint-disable-next-line no-process-env
+                    process.env?.AZURE_OPENAI_API_DEPLOYMENT_NAME
+                : undefined);
+        const azureApiVersion = fields?.azureOpenAIApiVersion ??
+            (typeof process !== "undefined"
+                ? // eslint-disable-next-line no-process-env
+                    process.env?.AZURE_OPENAI_API_VERSION
+                : undefined);
         this.modelName = fields?.modelName ?? this.modelName;
         this.modelKwargs = fields?.modelKwargs ?? {};
         this.timeout = fields?.timeout;
@@ -849,8 +902,23 @@ class ChatOpenAI extends BaseChatModel {
         this.logitBias = fields?.logitBias;
         this.stop = fields?.stop;
         this.streaming = fields?.streaming ?? false;
+        this.azureOpenAIApiVersion = azureApiVersion;
+        this.azureOpenAIApiKey = azureApiKey;
+        this.azureOpenAIApiInstanceName = azureApiInstanceName;
+        this.azureOpenAIApiDeploymentName = azureApiDeploymentName;
         if (this.streaming && this.n > 1) {
             throw new Error("Cannot stream results when n > 1");
+        }
+        if (this.azureOpenAIApiKey) {
+            if (!this.azureOpenAIApiInstanceName) {
+                throw new Error("Azure OpenAI API instance name not found");
+            }
+            if (!this.azureOpenAIApiDeploymentName) {
+                throw new Error("Azure OpenAI API deployment name not found");
+            }
+            if (!this.azureOpenAIApiVersion) {
+                throw new Error("Azure OpenAI API version not found");
+            }
         }
         this.clientConfig = {
             apiKey,
@@ -917,6 +985,7 @@ class ChatOpenAI extends BaseChatModel {
                     messages: messagesMapped,
                 }, {
                     ...options,
+                    adapter: fetchAdapter,
                     responseType: "stream",
                     onmessage: (event) => {
                         if (event.data?.trim?.() === "[DONE]") {
@@ -1018,18 +1087,36 @@ class ChatOpenAI extends BaseChatModel {
     /** @ignore */
     async completionWithRetry(request, options) {
         if (!this.client) {
+            const endpoint = this.azureOpenAIApiKey
+                ? `https://${this.azureOpenAIApiInstanceName}.openai.azure.com/openai/deployments/${this.azureOpenAIApiDeploymentName}`
+                : this.clientConfig.basePath;
             const clientConfig = new dist.Configuration({
                 ...this.clientConfig,
+                basePath: endpoint,
                 baseOptions: {
                     timeout: this.timeout,
-                    adapter: fetchAdapter,
                     ...this.clientConfig.baseOptions,
                 },
             });
             this.client = new dist.OpenAIApi(clientConfig);
         }
+        const axiosOptions = {
+            adapter: lib.isNode ? undefined : fetchAdapter,
+            ...this.clientConfig.baseOptions,
+            ...options,
+        };
+        if (this.azureOpenAIApiKey) {
+            axiosOptions.headers = {
+                "api-key": this.azureOpenAIApiKey,
+                ...axiosOptions.headers,
+            };
+            axiosOptions.params = {
+                "api-version": this.azureOpenAIApiVersion,
+                ...axiosOptions.params,
+            };
+        }
         return this.caller
-            .call(this.client.createChatCompletion.bind(this.client), request, options)
+            .call(this.client.createChatCompletion.bind(this.client), request, axiosOptions)
             .then((res) => res.data);
     }
     _llmType() {

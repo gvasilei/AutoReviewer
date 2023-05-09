@@ -8,6 +8,9 @@ inputs:
   model_name: 
     description: 'OpenAI model name'
     default: 'gpt-3.5-turbo'
+  model_temperature:
+    description: 'OpenAI model temperature'
+    default: '0'
 
 runs:
   using: 'node16'
