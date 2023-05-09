@@ -6,7 +6,7 @@ import {
 } from 'langchain/prompts'
 import { LLMChain } from 'langchain/chains'
 import { BaseChatModel } from 'langchain/dist/chat_models/base'
-import { ChainValues } from 'langchain/dist/schema'
+import type { ChainValues } from 'langchain/dist/schema'
 import { PullRequestFile } from './pullRequestService'
 
 export class CodeReviewService {

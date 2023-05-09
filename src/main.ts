@@ -2,7 +2,7 @@ import 'core-js/actual/structured-clone'
 import { config } from 'dotenv'
 import * as core from '@actions/core'
 import * as github from '@actions/github'
-import { PullRequestEvent } from '@octokit/webhooks-definitions/schema'
+import type { PullRequestEvent } from '@octokit/webhooks-definitions/schema'
 
 import { ChatOpenAI } from 'langchain/chat_models/openai'
 import { BaseChatModel } from 'langchain/dist/chat_models/base'
