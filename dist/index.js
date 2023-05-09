@@ -39,6 +39,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.run = void 0;
 __nccwpck_require__(5548);
 const dotenv_1 = __nccwpck_require__(2437);
 const core = __importStar(__nccwpck_require__(2186));
@@ -51,11 +52,12 @@ const run = () => __awaiter(void 0, void 0, void 0, function* () {
     const openAIApiKey = process.env['OPENAI_API_KEY'] || '';
     const githubToken = core.getInput('github_token');
     const modelName = core.getInput('model_name');
+    const temperature = parseInt(core.getInput('model_temperature'));
     const octokit = github.getOctokit(githubToken);
     const context = github.context;
     const { owner, repo } = context.repo;
     const model = new openai_1.ChatOpenAI({
-        temperature: 0,
+        temperature,
         openAIApiKey,
         modelName
     });
@@ -66,10 +68,8 @@ const run = () => __awaiter(void 0, void 0, void 0, function* () {
         try {
             core.info(`repoName: ${repo} pull_number: ${context.payload.number} owner: ${owner} sha: ${pullRequestPayload.pull_request.head.sha}`);
             const files = yield pullRequestService.getFilesForReview(owner, repo, context.payload.number);
-            //core.info(JSON.stringify(files, null, 2))
             for (const file of files) {
                 const res = yield codeReviewService.codeReviewFor(file);
-                core.info(JSON.stringify(res));
                 const patch = file.patch || '';
                 yield pullRequestService.createReviewComment({
                     repo,
@@ -93,7 +93,8 @@ const run = () => __awaiter(void 0, void 0, void 0, function* () {
         core.setFailed('This action only works on pull_request events');
     }
 });
-run();
+exports.run = run;
+(0, exports.run)();
 
 
 /***/ }),

@@ -11,17 +11,18 @@ import { PullRequestService } from './services/pullRequestService'
 
 config()
 
-const run = async (): Promise<void> => {
+export const run = async (): Promise<void> => {
   const openAIApiKey = process.env['OPENAI_API_KEY'] || ''
   const githubToken = core.getInput('github_token')
   const modelName = core.getInput('model_name')
+  const temperature = parseInt(core.getInput('model_temperature'))
 
   const octokit = github.getOctokit(githubToken)
   const context = github.context
   const { owner, repo } = context.repo
 
   const model: BaseChatModel = new ChatOpenAI({
-    temperature: 0,
+    temperature,
     openAIApiKey,
     modelName
   })
@@ -42,11 +43,8 @@ const run = async (): Promise<void> => {
         context.payload.number
       )
 
-      //core.info(JSON.stringify(files, null, 2))
       for (const file of files) {
         const res = await codeReviewService.codeReviewFor(file)
-
-        core.info(JSON.stringify(res))
         const patch = file.patch || ''
 
         await pullRequestService.createReviewComment({

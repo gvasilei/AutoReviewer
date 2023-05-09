@@ -20,3 +20,4 @@ jobs:
           NODE_OPTIONS: '--experimental-fetch'
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
+          temperature: 0
