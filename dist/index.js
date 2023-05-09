@@ -61,39 +61,36 @@ const run = () => __awaiter(void 0, void 0, void 0, function* () {
     });
     const codeReviewService = new codeReviewService_1.CodeReviewService(model);
     const pullRequestService = new pullRequestService_1.PullRequestService(octokit);
-    try {
-        core.info(`repoName: ${repo} pull_number: ${context.payload.number} owner: ${owner} sha: ${context.sha}`);
-        core.info(github.context.action);
-        core.info(github.context.eventName);
-        core.info(JSON.stringify(github.context.payload, null, 2));
-        /*if (github.context.eventName === 'pull_request') {
-          const pullRequestPayload = github.context.payload as PullRequest
-          //core.info(`The head commit is: ${pullRequestPayload.head.sha}`)
-          core.info(JSON.stringify(pullRequestPayload, null, 2))
-        }*/
-        //core.info(JSON.stringify(context.payload.pull_request?.head, null, 2))
-        const files = yield pullRequestService.getFilesForReview(owner, repo, context.payload.number);
-        //core.info(JSON.stringify(files, null, 2))
-        for (const file of files) {
-            const res = yield codeReviewService.codeReviewFor(file);
-            core.info(JSON.stringify(res));
-            const patch = file.patch || '';
-            yield pullRequestService.createReviewComment({
-                repo,
-                owner,
-                pull_number: context.payload.number,
-                commit_id: context.sha,
-                path: file.filename,
-                body: res.text,
-                position: patch.split('\n').length - 1
-            });
+    if (github.context.eventName === 'pull_request') {
+        const pullRequestPayload = github.context.payload;
+        try {
+            core.info(`repoName: ${repo} pull_number: ${context.payload.number} owner: ${owner} sha: ${pullRequestPayload.pull_request.head.sha}`);
+            const files = yield pullRequestService.getFilesForReview(owner, repo, context.payload.number);
+            //core.info(JSON.stringify(files, null, 2))
+            for (const file of files) {
+                const res = yield codeReviewService.codeReviewFor(file);
+                core.info(JSON.stringify(res));
+                const patch = file.patch || '';
+                yield pullRequestService.createReviewComment({
+                    repo,
+                    owner,
+                    pull_number: context.payload.number,
+                    commit_id: pullRequestPayload.pull_request.head.sha,
+                    path: file.filename,
+                    body: res.text,
+                    position: patch.split('\n').length - 1
+                });
+            }
+        }
+        catch (error) {
+            if (error instanceof Error) {
+                core.error(error.stack || '');
+                core.setFailed(error.message);
+            }
         }
     }
-    catch (error) {
-        if (error instanceof Error) {
-            core.error(error.stack || '');
-            core.setFailed(error.message);
-        }
+    else {
+        core.setFailed('This action only works on pull_request events');
     }
 });
 run();
