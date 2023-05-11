@@ -221,7 +221,7 @@ class PullRequestService {
                 pull_number: pullNumber
             });
             const filteredFiles = pullRequestFiles.data.filter(file => {
-                return (excludeFilePatterns.some(pattern => !(0, minimatch_1.minimatch)(file.filename, pattern, { matchBase: true })) && file.status === ('modified' || 0 || 0));
+                return (excludeFilePatterns.every(pattern => !(0, minimatch_1.minimatch)(file.filename, pattern, { matchBase: true })) && file.status === ('modified' || 0 || 0));
             });
             core.info(`Files for review: ${filteredFiles.map(_ => _.filename)} \n`);
             return filteredFiles;
