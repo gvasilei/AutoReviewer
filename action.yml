@@ -11,6 +11,10 @@ inputs:
   model_temperature:
     description: 'OpenAI model temperature'
     default: '0'
+  exclude_files:
+    description: "Provide a wildcard expression to exclude files from code review. For example, `*.md` will exclude all markdown files."
+    required: false
+    default: ""
 
 runs:
   using: 'node16'

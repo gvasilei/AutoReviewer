@@ -1,6 +1,7 @@
 // eslint-disable-next-line filenames/match-regex
 import { GitHub } from '@actions/github/lib/utils'
 import type { RestEndpointMethodTypes } from '@octokit/plugin-rest-endpoint-methods/dist-types/generated/parameters-and-response-types'
+import { minimatch } from 'minimatch'
 
 export type PullRequestFileResponse =
   RestEndpointMethodTypes['pulls']['listFiles']['response']
@@ -13,6 +14,9 @@ export type PullRequestFile = ArrElement<PullRequestFileResponse['data']>
 type CreateReviewCommentRequest =
   RestEndpointMethodTypes['pulls']['createReviewComment']['parameters']
 
+type CreateReviewRequest =
+  RestEndpointMethodTypes['pulls']['createReview']['parameters']
+
 export class PullRequestService {
   private octokit: InstanceType<typeof GitHub>
 
@@ -23,7 +27,8 @@ export class PullRequestService {
   getFilesForReview = async (
     owner: string,
     repo: string,
-    pullNumber: number
+    pullNumber: number,
+    excludeFilePatterns: string[]
   ): Promise<PullRequestFile[]> => {
     const pullRequestFiles = await this.octokit.rest.pulls.listFiles({
       owner,
@@ -33,8 +38,9 @@ export class PullRequestService {
 
     return pullRequestFiles.data.filter(file => {
       return (
-        file.filename.includes('.ts') &&
-        file.status === ('modified' || 'added' || 'changed')
+        excludeFilePatterns.some(
+          pattern => !minimatch(file.filename, pattern, { matchBase: true })
+        ) && file.status === ('modified' || 'added' || 'changed')
       )
     })
   }
@@ -43,5 +49,9 @@ export class PullRequestService {
     requestOptions: CreateReviewCommentRequest
   ): Promise<void> => {
     await this.octokit.rest.pulls.createReviewComment(requestOptions)
+  }
+
+  createReview = async (requestOptions: CreateReviewRequest): Promise<void> => {
+    await this.octokit.rest.pulls.createReview(requestOptions)
   }
 }

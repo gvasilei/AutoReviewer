@@ -27,6 +27,11 @@ export const run = async (): Promise<void> => {
     modelName
   })
 
+  const excludeFilePatterns = core
+    .getInput('exclude_files')
+    .split(',')
+    .map(_ => _.trim())
+
   const codeReviewService = new CodeReviewService(model)
   const pullRequestService = new PullRequestService(octokit)
 
@@ -40,7 +45,8 @@ export const run = async (): Promise<void> => {
       const files = await pullRequestService.getFilesForReview(
         owner,
         repo,
-        context.payload.number
+        context.payload.number,
+        excludeFilePatterns
       )
 
       for (const file of files) {
