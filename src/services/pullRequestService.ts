@@ -4,7 +4,6 @@ import type { RestEndpointMethodTypes } from '@octokit/plugin-rest-endpoint-meth
 import { minimatch } from 'minimatch'
 import * as core from '@actions/core'
 
-
 export type PullRequestFileResponse =
   RestEndpointMethodTypes['pulls']['listFiles']['response']
 
@@ -38,15 +37,22 @@ export class PullRequestService {
       pull_number: pullNumber
     })
 
+    core.info(
+      `Original files for review: ${pullRequestFiles.data.map(_ => _.filename)}`
+    )
+
     const filteredFiles = pullRequestFiles.data.filter(file => {
       return (
         excludeFilePatterns.every(
           pattern => !minimatch(file.filename, pattern, { matchBase: true })
-        ) && file.status === ('modified' || 'added' || 'changed')
+        ) &&
+        (file.status === 'modified' ||
+          file.status === 'added' ||
+          file.status === 'changed')
       )
     })
 
-    core.info(`Files for review: ${filteredFiles.map(_ => _.filename)} \n`)
+    core.info(`Files for review: ${filteredFiles.map(_ => _.filename)}`)
     return filteredFiles
   }
 

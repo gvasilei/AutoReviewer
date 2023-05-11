@@ -220,10 +220,14 @@ class PullRequestService {
                 repo,
                 pull_number: pullNumber
             });
+            core.info(`Original files for review: ${pullRequestFiles.data.map(_ => _.filename)}`);
             const filteredFiles = pullRequestFiles.data.filter(file => {
-                return (excludeFilePatterns.every(pattern => !(0, minimatch_1.minimatch)(file.filename, pattern, { matchBase: true })) && file.status === ('modified' || 0 || 0));
+                return (excludeFilePatterns.every(pattern => !(0, minimatch_1.minimatch)(file.filename, pattern, { matchBase: true })) &&
+                    (file.status === 'modified' ||
+                        file.status === 'added' ||
+                        file.status === 'changed'));
             });
-            core.info(`Files for review: ${filteredFiles.map(_ => _.filename)} \n`);
+            core.info(`Files for review: ${filteredFiles.map(_ => _.filename)}`);
             return filteredFiles;
         });
         this.createReviewComment = (requestOptions) => __awaiter(this, void 0, void 0, function* () {
