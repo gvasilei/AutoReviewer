@@ -222,7 +222,10 @@ class PullRequestService {
             });
             core.info(`Original files for review: ${pullRequestFiles.data.map(_ => _.filename)}`);
             const filteredFiles = pullRequestFiles.data.filter(file => {
-                return (excludeFilePatterns.every(pattern => !(0, minimatch_1.minimatch)(file.filename, pattern)) &&
+                return (excludeFilePatterns.every(pattern => {
+                    core.info(`pattern: ${pattern} file: ${file.filename} ${!(0, minimatch_1.minimatch)(file.filename, pattern)}`);
+                    return !(0, minimatch_1.minimatch)(file.filename, pattern);
+                }) &&
                     (file.status === 'modified' ||
                         file.status === 'added' ||
                         file.status === 'changed'));

@@ -43,9 +43,15 @@ export class PullRequestService {
 
     const filteredFiles = pullRequestFiles.data.filter(file => {
       return (
-        excludeFilePatterns.every(
-          pattern => !minimatch(file.filename, pattern)
-        ) &&
+        excludeFilePatterns.every(pattern => {
+          core.info(
+            `pattern: ${pattern} file: ${file.filename} ${!minimatch(
+              file.filename,
+              pattern
+            )}`
+          )
+          return !minimatch(file.filename, pattern)
+        }) &&
         (file.status === 'modified' ||
           file.status === 'added' ||
           file.status === 'changed')
