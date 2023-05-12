@@ -16,9 +16,9 @@ jobs:
       - uses: actions/checkout@v3
       - uses: ./
         env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           NODE_OPTIONS: '--experimental-fetch'
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
+          openai_api_key: ${{ secrets.OPENAI_API_KEY }}
           temperature: 0
           exclude_files: '*.js, *.json, *.md, *.yml, *.js.map'

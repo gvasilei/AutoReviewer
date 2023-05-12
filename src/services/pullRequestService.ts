@@ -44,7 +44,7 @@ export class PullRequestService {
     const filteredFiles = pullRequestFiles.data.filter(file => {
       return (
         excludeFilePatterns.every(pattern => {
-          core.info(
+          core.debug(
             `pattern: ${pattern} file: ${file.filename} ${!minimatch(
               file.filename,
               pattern,
@@ -59,7 +59,9 @@ export class PullRequestService {
       )
     })
 
-    core.info(`Files for review: ${filteredFiles.map(_ => _.filename)}`)
+    core.debug(
+      `Filtered files for review: ${filteredFiles.map(_ => _.filename)}`
+    )
     return filteredFiles
   }
 
