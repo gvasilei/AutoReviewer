@@ -8,7 +8,7 @@ import { LLMChain } from 'langchain/chains'
 import { BaseChatModel } from 'langchain/dist/chat_models/base'
 import type { ChainValues } from 'langchain/dist/schema'
 import { PullRequestFile } from './pullRequestService'
-//import parseDiff, { Chunk, File } from "parse-diff";
+import parseDiff from 'parse-diff'
 
 export class CodeReviewService {
   private llm: BaseChatModel
@@ -40,22 +40,19 @@ export class CodeReviewService {
     })
   }
 
-  /*async codeReviewForChunks(file: PullRequestFile): Promise<ChainValues> {
+  async codeReviewForChunks(file: PullRequestFile): Promise<ChainValues> {
     const fileDiff = parseDiff(file.patch)[0]
+    const chunkReviews: ChainValues[] = []
 
     for (const chunk of fileDiff.chunks) {
       const chunkReview = await this.chain.call({
         lang: 'TypeScript',
         diff: chunk.content
       })
-      const prompt = createPrompt(file, chunk, prDetails);
-      const aiResponse = await getAIResponse(prompt);
-      if (aiResponse) {
-        const newComments = createComment(file, chunk, aiResponse);
-        if (newComments) {
-          comments.push(...newComments);
-        }
-      }
+
+      chunkReviews.push(chunkReview)
     }
-    */
+
+    return chunkReviews
+  }
 }

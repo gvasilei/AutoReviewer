@@ -2,6 +2,7 @@
 import { GitHub } from '@actions/github/lib/utils'
 import type { RestEndpointMethodTypes } from '@octokit/plugin-rest-endpoint-methods/dist-types/generated/parameters-and-response-types'
 import { minimatch } from 'minimatch'
+import * as core from '@actions/core'
 
 export type PullRequestFileResponse =
   RestEndpointMethodTypes['pulls']['listFiles']['response']
@@ -36,13 +37,32 @@ export class PullRequestService {
       pull_number: pullNumber
     })
 
-    return pullRequestFiles.data.filter(file => {
+    core.info(
+      `Original files for review: ${pullRequestFiles.data.map(_ => _.filename)}`
+    )
+
+    const filteredFiles = pullRequestFiles.data.filter(file => {
       return (
-        excludeFilePatterns.some(
-          pattern => !minimatch(file.filename, pattern, { matchBase: true })
-        ) && file.status === ('modified' || 'added' || 'changed')
+        excludeFilePatterns.every(pattern => {
+          core.debug(
+            `pattern: ${pattern} file: ${file.filename} ${!minimatch(
+              file.filename,
+              pattern,
+              { matchBase: true }
+            )}`
+          )
+          return !minimatch(file.filename, pattern, { matchBase: true })
+        }) &&
+        (file.status === 'modified' ||
+          file.status === 'added' ||
+          file.status === 'changed')
       )
     })
+
+    core.debug(
+      `Filtered files for review: ${filteredFiles.map(_ => _.filename)}`
+    )
+    return filteredFiles
   }
 
   createReviewComment = async (

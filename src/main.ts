@@ -12,7 +12,7 @@ import { PullRequestService } from './services/pullRequestService'
 config()
 
 export const run = async (): Promise<void> => {
-  const openAIApiKey = process.env['OPENAI_API_KEY'] || ''
+  const openAIApiKey = core.getInput('openai_api_key')
   const githubToken = core.getInput('github_token')
   const modelName = core.getInput('model_name')
   const temperature = parseInt(core.getInput('model_temperature'))

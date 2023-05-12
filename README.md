@@ -8,7 +8,49 @@ A GitHub action uses OpenAI's GPT-4 to perform automated code reviews. When you 
 
 ## 🚀 How to use it
 
-Using the `AutoReviewer` GitHub action is super easy! Just add it to your workflow file and let it do its magic. Our action will automatically run whenever a new PR is created. 
+- Get an API Key from [OpenAI](https://platform.openai.com/account/api-keys)
+- Add it as a Github secret
+- Setup an action that runs on every PR
+
+```
+name: 'AutoReviewer'
+on: # rebuild any PRs and main branch changes
+  pull_request:
+jobs:
+  code-review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: ./
+        env:
+          NODE_OPTIONS: '--experimental-fetch'
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          openai_api_key: ${{ secrets.OPENAI_API_KEY }}
+          temperature: 0
+          exclude_files: '*.js, *.json, *.md, *.yml, *.js.map'
+```
+- Or when a label is added
+```
+name: 'AutoReviewer'
+on: # rebuild any PRs and main branch changes
+  pull_request:
+    types: [labeled]
+jobs:
+  code-review:
+    if: ${{ contains( github.event.label.name, 'AutoReview') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: ./
+        env:
+          NODE_OPTIONS: '--experimental-fetch'
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          openai_api_key: ${{ secrets.OPENAI_API_KEY }}
+          temperature: 0
+          exclude_files: '*.js, *.json, *.md, *.yml, *.js.map'
+```
 
 ## 🎉 Benefits
 
