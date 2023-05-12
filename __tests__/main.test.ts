@@ -1,20 +1,35 @@
-import {wait} from '../src/wait'
 import * as process from 'process'
 import * as cp from 'child_process'
 import * as path from 'path'
-import {expect, test} from '@jest/globals'
+import {expect, test, jest} from '@jest/globals'
 
-test('throws invalid number', async () => {
-  const input = parseInt('foo', 10)
-  await expect(wait(input)).rejects.toThrow('milliseconds not a number')
+import * as core from '@actions/core';
+import * as github from '@actions/github';
+import { CodeReviewService } from '../src/services/codeReviewService';
+import { PullRequestService } from '../src/services/pullRequestService';
+import { run } from '../src/main';
+
+jest.mock('@actions/core');
+jest.mock('@actions/github');
+jest.mock('../src/services/codeReviewService');
+jest.mock('../src/services/pullRequestService');
+
+const mockedCore = jest.mocked(core);
+const mockedGitHub = jest.mocked(github);
+const mockedCodeReviewService = jest.mocked(CodeReviewService);
+const mockedPullRequestService = jest.mocked(PullRequestService);
+
+describe('run', () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
 })
 
-test('wait 500 ms', async () => {
-  const start = new Date()
-  await wait(500)
-  const end = new Date()
-  var delta = Math.abs(end.getTime() - start.getTime())
-  expect(delta).toBeGreaterThan(450)
+it('should set action as failed if event is not pull_request', async () => {
+  mockedGitHub.context.eventName = 'some_other_event'
+  await run()
+
+  expect(mockedCore.setFailed).toHaveBeenCalledWith('This action only works on pull_request events')
 })
 
 // shows how the runner will run a javascript action with env / stdout protocol

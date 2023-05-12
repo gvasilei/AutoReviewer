@@ -47,10 +47,11 @@ export class PullRequestService {
           core.info(
             `pattern: ${pattern} file: ${file.filename} ${!minimatch(
               file.filename,
-              pattern
+              pattern,
+              { matchBase: true }
             )}`
           )
-          return !minimatch(file.filename, pattern)
+          return !minimatch(file.filename, pattern, { matchBase: true })
         }) &&
         (file.status === 'modified' ||
           file.status === 'added' ||
