@@ -8,6 +8,7 @@ import { ChatOpenAI } from 'langchain/chat_models/openai'
 import { BaseChatModel } from 'langchain/dist/chat_models/base'
 import { CodeReviewService } from './services/codeReviewService'
 import { PullRequestService } from './services/pullRequestService'
+import { LanguageDetectionService } from './services/languageDetectionService'
 
 config()
 
@@ -32,7 +33,11 @@ export const run = async (): Promise<void> => {
     .split(',')
     .map(_ => _.trim())
 
-  const codeReviewService = new CodeReviewService(model)
+  const languageDetectionService = new LanguageDetectionService()
+  const codeReviewService = new CodeReviewService(
+    model,
+    languageDetectionService
+  )
   const pullRequestService = new PullRequestService(octokit)
 
   if (github.context.eventName === 'pull_request') {

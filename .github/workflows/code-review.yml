@@ -1,0 +1,22 @@
+name: 'code review'
+on: # rebuild any PRs and main branch changes
+  pull_request:
+    types:
+      - labeled
+      - synchronize
+permissions:
+  pull-requests: write
+jobs:
+  code-review: # make sure the action works on a clean machine without building
+    if: ${{ contains( github.event.label.name, 'AutoReview') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: ./
+        env:
+          NODE_OPTIONS: '--experimental-fetch'
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          openai_api_key: ${{ secrets.OPENAI_API_KEY }}
+          temperature: 0
+          exclude_files: '*.js, *.json, *.md, *.yml, *.js.map'
