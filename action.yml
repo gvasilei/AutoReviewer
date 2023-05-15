@@ -18,7 +18,7 @@ inputs:
     description: 'OpenAI model temperature'
     default: '0'
   exclude_files:
-    description: "Provide a wildcard expression to exclude files from code review. For example, `*.md` will exclude all markdown files."
+    description: "Provide a wildcard expression to exclude files from code review. For example, `*.md` will exclude all markdown files. Multiple expressions are supported via commas, eg `*.js, *.cjs`"
     required: false
     default: ""
 
