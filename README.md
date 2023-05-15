@@ -27,7 +27,7 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           openai_api_key: ${{ secrets.OPENAI_API_KEY }}
-          exclude_files: '*.js, *.json, *.md, *.yml' # optionally exclude files based on a wildcard expression. 
+          exclude_files: '*.json, *.md, *.yml' # optionally exclude files based on a wildcard expression. 
 ```
 - Or when a label is added
 ```
@@ -47,7 +47,7 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           openai_api_key: ${{ secrets.OPENAI_API_KEY }}
-          exclude_files: '*.js, *.json, *.md, *.yml' # optionally exclude files based on a wildcard expression. 
+          exclude_files: '*.json, *.md, *.yml' # optionally exclude files based on a wildcard expression. 
 ```
 
 ## Input parameters
