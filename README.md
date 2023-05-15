@@ -13,7 +13,7 @@ A GitHub action uses OpenAI's GPT-4 to perform automated code reviews. When you 
 - Setup an action that runs on every PR
 
 ```
-name: 'AutoReviewer'
+name: 'code-review'
 on: # rebuild any PRs and main branch changes
   pull_request:
 jobs:
@@ -27,12 +27,11 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           openai_api_key: ${{ secrets.OPENAI_API_KEY }}
-          temperature: 0
           exclude_files: '*.js, *.json, *.md, *.yml, *.js.map'
 ```
 - Or when a label is added
 ```
-name: 'AutoReviewer'
+name: 'code-review'
 on: # rebuild any PRs and main branch changes
   pull_request:
     types: [labeled]
@@ -48,7 +47,6 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           openai_api_key: ${{ secrets.OPENAI_API_KEY }}
-          temperature: 0
           exclude_files: '*.js, *.json, *.md, *.yml, *.js.map'
 ```
 
@@ -62,8 +60,8 @@ Using our GitHub action has many benefits, such as:
 
 ## 🤞 Limitations
 
-This Github Action is still in early development
-
+- This Github Action is still in early development. 
+- While the action supports both `gpt-4` and `gpt-3.5-turbo`, `gpt-4` gives much better suggestions.
 ## 🙌 Contributing
 
 If you have any ideas or improvements to our GitHub action, feel free to submit a PR. We welcome all contributions! 

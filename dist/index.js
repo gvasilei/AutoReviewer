@@ -47,13 +47,13 @@ const github = __importStar(__nccwpck_require__(5438));
 const openai_1 = __nccwpck_require__(6079);
 const codeReviewService_1 = __nccwpck_require__(4784);
 const pullRequestService_1 = __nccwpck_require__(6231);
+const languageDetectionService_1 = __nccwpck_require__(8092);
 (0, dotenv_1.config)();
 const run = () => __awaiter(void 0, void 0, void 0, function* () {
     const openAIApiKey = core.getInput('openai_api_key');
     const githubToken = core.getInput('github_token');
     const modelName = core.getInput('model_name');
     const temperature = parseInt(core.getInput('model_temperature'));
-    const octokit = github.getOctokit(githubToken);
     const context = github.context;
     const { owner, repo } = context.repo;
     const model = new openai_1.ChatOpenAI({
@@ -61,16 +61,15 @@ const run = () => __awaiter(void 0, void 0, void 0, function* () {
         openAIApiKey,
         modelName
     });
-    const excludeFilePatterns = core
-        .getInput('exclude_files')
-        .split(',')
-        .map(_ => _.trim());
-    const codeReviewService = new codeReviewService_1.CodeReviewService(model);
-    const pullRequestService = new pullRequestService_1.PullRequestService(octokit);
+    const [codeReviewService, pullRequestService] = initializeServices(model, githubToken);
     if (github.context.eventName === 'pull_request') {
         const pullRequestPayload = github.context.payload;
         try {
             core.info(`repoName: ${repo} pull_number: ${context.payload.number} owner: ${owner} sha: ${pullRequestPayload.pull_request.head.sha}`);
+            const excludeFilePatterns = core
+                .getInput('exclude_files')
+                .split(',')
+                .map(_ => _.trim());
             const files = yield pullRequestService.getFilesForReview(owner, repo, context.payload.number, excludeFilePatterns);
             for (const file of files) {
                 const res = yield codeReviewService.codeReviewFor(file);
@@ -98,6 +97,13 @@ const run = () => __awaiter(void 0, void 0, void 0, function* () {
     }
 });
 exports.run = run;
+const initializeServices = (model, githubToken) => {
+    const languageDetectionService = new languageDetectionService_1.LanguageDetectionService();
+    const codeReviewService = new codeReviewService_1.CodeReviewService(model, languageDetectionService);
+    const octokit = github.getOctokit(githubToken);
+    const pullRequestService = new pullRequestService_1.PullRequestService(octokit);
+    return [codeReviewService, pullRequestService];
+};
 (0, exports.run)();
 
 
@@ -127,12 +133,12 @@ const prompts_1 = __nccwpck_require__(224);
 const chains_1 = __nccwpck_require__(9248);
 const parse_diff_1 = __importDefault(__nccwpck_require__(4833));
 class CodeReviewService {
-    constructor(llm) {
+    constructor(llm, languageDetectionService) {
         this.chatPrompt = prompts_1.ChatPromptTemplate.fromPromptMessages([
             prompts_1.SystemMessagePromptTemplate.fromTemplate("Act as an empathetic software engineer that's an expert in all programming languages, frameworks and software architecture."),
             prompts_1.HumanMessagePromptTemplate.fromTemplate(`You will take in a git diff, and tell the user what they could have improved (like a code review)
     based on analyzing the git diff in order to see whats changed.
-    The programming language in the snippet is {lang}.
+    The programming language in the git diff is {lang}.
     Feel free to provide any examples as markdown code snippets in your answer.
 
     {diff}`)
@@ -142,22 +148,25 @@ class CodeReviewService {
             prompt: this.chatPrompt,
             llm: this.llm
         });
+        this.languageDetectionService = languageDetectionService;
     }
     codeReviewFor(file) {
         return __awaiter(this, void 0, void 0, function* () {
+            const programmingLanguage = this.languageDetectionService.detectLanguage(file.filename);
             return yield this.chain.call({
-                lang: 'TypeScript',
+                lang: programmingLanguage,
                 diff: file.patch
             });
         });
     }
     codeReviewForChunks(file) {
         return __awaiter(this, void 0, void 0, function* () {
+            const programmingLanguage = this.languageDetectionService.detectLanguage(file.filename);
             const fileDiff = (0, parse_diff_1.default)(file.patch)[0];
             const chunkReviews = [];
             for (const chunk of fileDiff.chunks) {
                 const chunkReview = yield this.chain.call({
-                    lang: 'TypeScript',
+                    lang: programmingLanguage,
                     diff: chunk.content
                 });
                 chunkReviews.push(chunkReview);
@@ -167,6 +176,87 @@ class CodeReviewService {
     }
 }
 exports.CodeReviewService = CodeReviewService;
+
+
+/***/ }),
+
+/***/ 8092:
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.LanguageDetectionService = void 0;
+// eslint-disable-next-line filenames/match-regex
+class LanguageDetectionService {
+    constructor() {
+        this.detectLanguage = (filename) => {
+            const extension = this.getFileExtension(filename);
+            if (extension in extensionToLanguageMap) {
+                return extensionToLanguageMap[extension];
+            }
+            else {
+                return undefined;
+            }
+        };
+    }
+    getFileExtension(filename) {
+        const extension = filename.split('.').pop();
+        return extension ? extension : '';
+    }
+}
+exports.LanguageDetectionService = LanguageDetectionService;
+const extensionToLanguageMap = {
+    js: 'javascript',
+    ts: 'typescript',
+    py: 'python',
+    go: 'go',
+    rb: 'ruby',
+    cs: 'csharp',
+    java: 'java',
+    php: 'php',
+    rs: 'rust',
+    swift: 'swift',
+    cpp: 'cpp',
+    c: 'c',
+    m: 'objective-c',
+    mm: 'objective-cpp',
+    h: 'c',
+    hpp: 'cpp',
+    hxx: 'cpp',
+    hh: 'cpp',
+    cc: 'cpp',
+    cxx: 'cpp',
+    html: 'html',
+    css: 'css',
+    scss: 'scss',
+    less: 'less',
+    sass: 'sass',
+    styl: 'stylus',
+    vue: 'vue',
+    svelte: 'svelte',
+    jsx: 'jsx',
+    tsx: 'tsx',
+    md: 'markdown',
+    json: 'json',
+    yaml: 'yaml',
+    yml: 'yaml',
+    xml: 'xml',
+    toml: 'toml',
+    sh: 'shell',
+    clj: 'clojure',
+    cljs: 'clojure',
+    cljc: 'clojure',
+    edn: 'clojure',
+    lua: 'lua',
+    sql: 'sql',
+    r: 'r',
+    kt: 'kotlin',
+    kts: 'kotlin',
+    ktm: 'kotlin',
+    ktx: 'kotlin',
+    gradle: 'groovy'
+};
 
 
 /***/ }),
