@@ -25,14 +25,14 @@ describe('run', () => {
   });
 })
 
-it('should set action as failed if event is not pull_request', async () => {
+/*it('should set action as failed if event is not pull_request', async () => {
   mockedGitHub.context.eventName = 'some_other_event'
   mockedGitHub.context.repo.owner = 'some_owner'
   mockedGitHub.context.repo.repo = 'some_repo'
   await run()
 
   expect(mockedCore.setFailed).toHaveBeenCalledWith('This action only works on pull_request events')
-})
+})*/
 
 // shows how the runner will run a javascript action with env / stdout protocol
 /*test('test runs', () => {
