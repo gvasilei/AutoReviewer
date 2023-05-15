@@ -361,7 +361,7 @@ const checkValidTemplate = (template, templateFormat, inputVariables) => {
 /* harmony export */   "Z": () => (/* binding */ HumanChatMessage),
 /* harmony export */   "w": () => (/* binding */ SystemChatMessage)
 /* harmony export */ });
-/* unused harmony exports BaseChatMessage, BaseRetriever, BaseChatMessageHistory, BaseCache, BaseFileStore */
+/* unused harmony exports BaseChatMessage, BaseRetriever, BaseChatMessageHistory, BaseListChatMessageHistory, BaseCache, BaseFileStore */
 const RUN_KEY = "__run";
 class BaseChatMessage {
     constructor(text) {
@@ -423,6 +423,14 @@ class BasePromptValue {
 class BaseRetriever {
 }
 class BaseChatMessageHistory {
+}
+class BaseListChatMessageHistory {
+    addUserMessage(message) {
+        return this.addMessage(new HumanChatMessage(message));
+    }
+    addAIChatMessage(message) {
+        return this.addMessage(new AIChatMessage(message));
+    }
 }
 class BaseCache {
 }

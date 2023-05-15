@@ -10,7 +10,7 @@ exports.modules = {
 /* harmony export */   "l": () => (/* binding */ BaseChain)
 /* harmony export */ });
 /* harmony import */ var _schema_index_js__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(8102);
-/* harmony import */ var _callbacks_manager_js__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(4855);
+/* harmony import */ var _callbacks_manager_js__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(4908);
 /* harmony import */ var _base_language_index_js__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(7396);
 
 
@@ -82,10 +82,10 @@ class BaseChain extends _base_language_index_js__WEBPACK_IMPORTED_MODULE_1__/* .
             await runManager?.handleChainError(e);
             throw e;
         }
-        await runManager?.handleChainEnd(outputValues);
         if (!(this.memory == null)) {
             await this.memory.saveContext(values, outputValues);
         }
+        await runManager?.handleChainEnd(outputValues);
         // add the runManager's currentRunId to the outputValues
         Object.defineProperty(outputValues, _schema_index_js__WEBPACK_IMPORTED_MODULE_2__/* .RUN_KEY */ .WH, {
             value: runManager ? { runId: runManager?.runId } : undefined,
@@ -223,14 +223,26 @@ class LLMChain extends _base_js__WEBPACK_IMPORTED_MODULE_0__/* .BaseChain */ .l 
         }
         return finalCompletion;
     }
+    /**
+     * Run the core logic of this chain and add to output if desired.
+     *
+     * Wraps _call and handles memory.
+     */
+    call(values, callbacks) {
+        return super.call(values, callbacks);
+    }
     /** @ignore */
     async _call(values, runManager) {
-        let stop;
-        if ("stop" in values && Array.isArray(values.stop)) {
-            stop = values.stop;
+        const valuesForPrompt = { ...values };
+        const valuesForLLM = {};
+        for (const key of this.llm.callKeys) {
+            if (key in values) {
+                valuesForLLM[key] = values[key];
+                delete valuesForPrompt[key];
+            }
         }
-        const promptValue = await this.prompt.formatPromptValue(values);
-        const { generations } = await this.llm.generatePrompt([promptValue], stop, runManager?.getChild());
+        const promptValue = await this.prompt.formatPromptValue(valuesForPrompt);
+        const { generations } = await this.llm.generatePrompt([promptValue], valuesForLLM, runManager?.getChild());
         return {
             [this.outputKey]: await this._getFinalOutput(generations[0], promptValue, runManager),
         };
