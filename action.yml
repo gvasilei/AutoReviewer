@@ -1,6 +1,6 @@
-name: 'Your name here'
-description: 'Provide a description here'
-author: 'Your name or organization here'
+name: 'Auto Code Review'
+description: 'Use LLMs to perform automatic code reviews. Powered by AutoReviewer.'
+author: 'gvasilei'
 inputs:
   github_token:
     description: 'github token'
