@@ -5,6 +5,7 @@ on: # rebuild any PRs and main branch changes
       - labeled
       - synchronize
 permissions:
+  contents: read
   pull-requests: write
 jobs:
   code-review: # make sure the action works on a clean machine without building
