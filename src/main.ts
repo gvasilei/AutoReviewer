@@ -18,7 +18,6 @@ export const run = async (): Promise<void> => {
   const modelName = core.getInput('model_name')
   const temperature = parseInt(core.getInput('model_temperature'))
 
-  const octokit = github.getOctokit(githubToken)
   const context = github.context
   const { owner, repo } = context.repo
 
@@ -28,17 +27,10 @@ export const run = async (): Promise<void> => {
     modelName
   })
 
-  const excludeFilePatterns = core
-    .getInput('exclude_files')
-    .split(',')
-    .map(_ => _.trim())
-
-  const languageDetectionService = new LanguageDetectionService()
-  const codeReviewService = new CodeReviewService(
+  const [codeReviewService, pullRequestService] = initializeServices(
     model,
-    languageDetectionService
+    githubToken
   )
-  const pullRequestService = new PullRequestService(octokit)
 
   if (github.context.eventName === 'pull_request') {
     const pullRequestPayload = github.context.payload as PullRequestEvent
@@ -46,6 +38,11 @@ export const run = async (): Promise<void> => {
       core.info(
         `repoName: ${repo} pull_number: ${context.payload.number} owner: ${owner} sha: ${pullRequestPayload.pull_request.head.sha}`
       )
+
+      const excludeFilePatterns = core
+        .getInput('exclude_files')
+        .split(',')
+        .map(_ => _.trim())
 
       const files = await pullRequestService.getFilesForReview(
         owner,
@@ -77,6 +74,21 @@ export const run = async (): Promise<void> => {
   } else {
     core.setFailed('This action only works on pull_request events')
   }
+}
+
+const initializeServices = (
+  model: BaseChatModel,
+  githubToken: string
+): [CodeReviewService, PullRequestService] => {
+  const languageDetectionService = new LanguageDetectionService()
+  const codeReviewService = new CodeReviewService(
+    model,
+    languageDetectionService
+  )
+  const octokit = github.getOctokit(githubToken)
+  const pullRequestService = new PullRequestService(octokit)
+
+  return [codeReviewService, pullRequestService]
 }
 
 run()

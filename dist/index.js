@@ -54,7 +54,6 @@ const run = () => __awaiter(void 0, void 0, void 0, function* () {
     const githubToken = core.getInput('github_token');
     const modelName = core.getInput('model_name');
     const temperature = parseInt(core.getInput('model_temperature'));
-    const octokit = github.getOctokit(githubToken);
     const context = github.context;
     const { owner, repo } = context.repo;
     const model = new openai_1.ChatOpenAI({
@@ -62,17 +61,15 @@ const run = () => __awaiter(void 0, void 0, void 0, function* () {
         openAIApiKey,
         modelName
     });
-    const excludeFilePatterns = core
-        .getInput('exclude_files')
-        .split(',')
-        .map(_ => _.trim());
-    const languageDetectionService = new languageDetectionService_1.LanguageDetectionService();
-    const codeReviewService = new codeReviewService_1.CodeReviewService(model, languageDetectionService);
-    const pullRequestService = new pullRequestService_1.PullRequestService(octokit);
+    const [codeReviewService, pullRequestService] = initializeServices(model, githubToken);
     if (github.context.eventName === 'pull_request') {
         const pullRequestPayload = github.context.payload;
         try {
             core.info(`repoName: ${repo} pull_number: ${context.payload.number} owner: ${owner} sha: ${pullRequestPayload.pull_request.head.sha}`);
+            const excludeFilePatterns = core
+                .getInput('exclude_files')
+                .split(',')
+                .map(_ => _.trim());
             const files = yield pullRequestService.getFilesForReview(owner, repo, context.payload.number, excludeFilePatterns);
             for (const file of files) {
                 const res = yield codeReviewService.codeReviewFor(file);
@@ -100,6 +97,13 @@ const run = () => __awaiter(void 0, void 0, void 0, function* () {
     }
 });
 exports.run = run;
+const initializeServices = (model, githubToken) => {
+    const languageDetectionService = new languageDetectionService_1.LanguageDetectionService();
+    const codeReviewService = new codeReviewService_1.CodeReviewService(model, languageDetectionService);
+    const octokit = github.getOctokit(githubToken);
+    const pullRequestService = new pullRequestService_1.PullRequestService(octokit);
+    return [codeReviewService, pullRequestService];
+};
 (0, exports.run)();
 
 
