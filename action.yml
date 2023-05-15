@@ -1,6 +1,9 @@
-name: 'Auto Code Review'
+name: 'AI Assisted Code Review'
 description: 'Use LLMs to perform automatic code reviews. Powered by AutoReviewer.'
 author: 'gvasilei'
+branding:
+  icon: 'git-pull-request'
+  color: 'gray-dark'
 inputs:
   github_token:
     description: 'github token'
