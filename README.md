@@ -21,7 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: gvasilei/AutoReviewer@0.2.3
+      - uses: gvasilei/AutoReviewer@0.3
         env:
           NODE_OPTIONS: '--experimental-fetch'
         with:
@@ -41,7 +41,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: gvasilei/AutoReviewer@0.2.3
+      - uses: gvasilei/AutoReviewer@0.3
         env:
           NODE_OPTIONS: '--experimental-fetch'
         with:
