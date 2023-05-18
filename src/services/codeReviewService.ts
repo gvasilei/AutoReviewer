@@ -16,10 +16,13 @@ export class CodeReviewService {
     SystemMessagePromptTemplate.fromTemplate(
       "Act as an empathetic software engineer that's an expert in all programming languages, frameworks and software architecture."
     ),
-    HumanMessagePromptTemplate.fromTemplate(`You will take in a git diff, and tell the user what they could have improved (like a code review)
-    based on analyzing the git diff in order to see whats changed.
-    The programming language in the git diff is {lang}.
-    Feel free to provide any examples as markdown code snippets in your answer.
+    HumanMessagePromptTemplate.fromTemplate(`Your task is to review a Pull Request. You will receive a git diff. 
+    Review it and suggest any improvements in code quality, maintainability, readability, performance, security, etc.
+    Identify any potential bugs or security vulnerabilities. Check it adheres to coding standards and best practices.
+    Suggest adding comments to the code only when you consider it a significant improvement.
+    Write your reply and examples in GitHub Markdown format. The programming language in the git diff is {lang}.
+
+    git diff to review
 
     {diff}`)
   ])
