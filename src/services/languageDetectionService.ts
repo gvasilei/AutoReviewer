@@ -64,7 +64,10 @@ const extensionToLanguageMap = {
   kts: 'kotlin',
   ktm: 'kotlin',
   ktx: 'kotlin',
-  gradle: 'groovy'
+  gradle: 'groovy',
+  tf: 'terraform',
+  scala: 'scala',
+  sc: 'scala'
 } as const
 
 type LanguageKey = keyof typeof extensionToLanguageMap
