@@ -1,5 +1,4 @@
 import 'core-js/actual/structured-clone'
-import { config } from 'dotenv'
 import * as core from '@actions/core'
 import * as github from '@actions/github'
 import type { PullRequestEvent } from '@octokit/webhooks-definitions/schema'
@@ -9,8 +8,6 @@ import { BaseChatModel } from 'langchain/dist/chat_models/base'
 import { CodeReviewService } from './services/codeReviewService'
 import { PullRequestService } from './services/pullRequestService'
 import { LanguageDetectionService } from './services/languageDetectionService'
-
-config()
 
 export const run = async (): Promise<void> => {
   const openAIApiKey = core.getInput('openai_api_key')
@@ -52,9 +49,11 @@ export const run = async (): Promise<void> => {
       )
 
       for (const file of files) {
+        core.info(`Performing code review for ${file.filename}`)
         const res = await codeReviewService.codeReviewFor(file)
         const patch = file.patch || ''
 
+        core.info(`Creating review comment...`)
         await pullRequestService.createReviewComment({
           repo,
           owner,

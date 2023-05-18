@@ -15,24 +15,38 @@ jest.mock('../src/services/codeReviewService');
 jest.mock('../src/services/pullRequestService');
 
 const mockedCore = jest.mocked(core);
-const mockedGitHub = jest.mocked(github);
 const mockedCodeReviewService = jest.mocked(CodeReviewService);
 const mockedPullRequestService = jest.mocked(PullRequestService);
+
+// Mock the context object
+const mockedGitHub = jest.mocked(github);
+
+jest.spyOn(mockedGitHub.context, 'repo', 'get').mockImplementation(() => {
+  return {
+    owner: 'some_owner',
+    repo: 'some_repo'
+  }
+});
 
 describe('run', () => {
   afterEach(() => {
     jest.clearAllMocks();
   });
+
+  it('should run without errors', async () => {
+    await expect(run()).resolves.not.toThrow()
+  })
 })
 
-/*it('should set action as failed if event is not pull_request', async () => {
+
+it('should set action as failed if event is not pull_request', async () => {
   mockedGitHub.context.eventName = 'some_other_event'
   mockedGitHub.context.repo.owner = 'some_owner'
   mockedGitHub.context.repo.repo = 'some_repo'
   await run()
 
   expect(mockedCore.setFailed).toHaveBeenCalledWith('This action only works on pull_request events')
-})*/
+})
 
 // shows how the runner will run a javascript action with env / stdout protocol
 /*test('test runs', () => {

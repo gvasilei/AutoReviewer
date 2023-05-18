@@ -10,6 +10,9 @@ import type { ChainValues } from 'langchain/dist/schema'
 import { PullRequestFile } from './pullRequestService'
 import parseDiff from 'parse-diff'
 import { LanguageDetectionService } from './languageDetectionService'
+import { TiktokenModel } from 'tiktoken'
+import { calculateMaxTokens } from 'langchain/dist/base_language/count_tokens'
+
 export class CodeReviewService {
   private llm: BaseChatModel
   private chatPrompt = ChatPromptTemplate.fromPromptMessages([
@@ -42,10 +45,29 @@ export class CodeReviewService {
     const programmingLanguage = this.languageDetectionService.detectLanguage(
       file.filename
     )
+
     return await this.chain.call({
       lang: programmingLanguage,
       diff: file.patch
     })
+  }
+
+  async fitsInContext(file: PullRequestFile): Promise<boolean> {
+    const programmingLanguage = this.languageDetectionService.detectLanguage(
+      file.filename
+    )
+
+    const prompt = await this.chatPrompt.format({
+      lang: programmingLanguage,
+      diff: file.patch
+    })
+    const modelName = this.llm._modelType() as TiktokenModel
+    const remainingTokens = await calculateMaxTokens({
+      prompt,
+      modelName
+    })
+
+    return remainingTokens > 0
   }
 
   async codeReviewForChunks(file: PullRequestFile): Promise<ChainValues> {
