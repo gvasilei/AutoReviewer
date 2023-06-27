@@ -64,14 +64,23 @@ const run = () => __awaiter(void 0, void 0, void 0, function* () {
     const [codeReviewService, pullRequestService] = initializeServices(model, githubToken);
     if (github.context.eventName === 'pull_request') {
         const pullRequestPayload = github.context.payload;
+        let files = [];
         try {
             core.info(`repoName: ${repo} pull_number: ${context.payload.number} owner: ${owner} sha: ${pullRequestPayload.pull_request.head.sha}`);
             const excludeFilePatterns = core
                 .getInput('exclude_files')
                 .split(',')
                 .map(_ => _.trim());
-            const files = yield pullRequestService.getFilesForReview(owner, repo, context.payload.number, excludeFilePatterns);
-            for (const file of files) {
+            files = yield pullRequestService.getFilesForReview(owner, repo, context.payload.number, excludeFilePatterns);
+        }
+        catch (error) {
+            if (error instanceof Error) {
+                core.error(error.stack || '');
+                core.setFailed(error.message);
+            }
+        }
+        for (const file of files) {
+            try {
                 const res = yield codeReviewService.codeReviewFor(file);
                 const patch = file.patch || '';
                 yield pullRequestService.createReviewComment({
@@ -84,11 +93,10 @@ const run = () => __awaiter(void 0, void 0, void 0, function* () {
                     position: patch.split('\n').length - 1
                 });
             }
-        }
-        catch (error) {
-            if (error instanceof Error) {
-                core.error(error.stack || '');
-                core.setFailed(error.message);
+            catch (error) {
+                if (error instanceof Error) {
+                    core.error(`Failed creating review comment for ${file.filename}: ${error.message}`);
+                }
             }
         }
     }

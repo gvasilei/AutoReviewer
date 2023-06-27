@@ -7,7 +7,10 @@ import type { PullRequestEvent } from '@octokit/webhooks-definitions/schema'
 import { ChatOpenAI } from 'langchain/chat_models/openai'
 import { BaseChatModel } from 'langchain/dist/chat_models/base'
 import { CodeReviewService } from './services/codeReviewService'
-import { PullRequestService } from './services/pullRequestService'
+import {
+  PullRequestService,
+  PullRequestFile
+} from './services/pullRequestService'
 import { LanguageDetectionService } from './services/languageDetectionService'
 
 config()
@@ -34,6 +37,8 @@ export const run = async (): Promise<void> => {
 
   if (github.context.eventName === 'pull_request') {
     const pullRequestPayload = github.context.payload as PullRequestEvent
+
+    let files: PullRequestFile[] = []
     try {
       core.info(
         `repoName: ${repo} pull_number: ${context.payload.number} owner: ${owner} sha: ${pullRequestPayload.pull_request.head.sha}`
@@ -44,14 +49,21 @@ export const run = async (): Promise<void> => {
         .split(',')
         .map(_ => _.trim())
 
-      const files = await pullRequestService.getFilesForReview(
+      files = await pullRequestService.getFilesForReview(
         owner,
         repo,
         context.payload.number,
         excludeFilePatterns
       )
+    } catch (error) {
+      if (error instanceof Error) {
+        core.error(error.stack || '')
+        core.setFailed(error.message)
+      }
+    }
 
-      for (const file of files) {
+    for (const file of files) {
+      try {
         const res = await codeReviewService.codeReviewFor(file)
         const patch = file.patch || ''
 
@@ -64,11 +76,12 @@ export const run = async (): Promise<void> => {
           body: res.text,
           position: patch.split('\n').length - 1
         })
-      }
-    } catch (error) {
-      if (error instanceof Error) {
-        core.error(error.stack || '')
-        core.setFailed(error.message)
+      } catch (error) {
+        if (error instanceof Error) {
+          core.error(
+            `Failed creating review comment for ${file.filename}: ${error.message}`
+          )
+        }
       }
     }
   } else {
