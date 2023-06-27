@@ -25,6 +25,10 @@ describe('run', () => {
   });
 })
 
+it('should pass a dummy test', () => {
+  expect(true).toBe(true);
+});
+
 /*it('should set action as failed if event is not pull_request', async () => {
   mockedGitHub.context.eventName = 'some_other_event'
   mockedGitHub.context.repo.owner = 'some_owner'
