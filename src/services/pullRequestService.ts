@@ -3,13 +3,10 @@ import { GitHub } from '@actions/github/lib/utils'
 import type { RestEndpointMethodTypes } from '@octokit/plugin-rest-endpoint-methods/dist-types/generated/parameters-and-response-types'
 import { minimatch } from 'minimatch'
 import * as core from '@actions/core'
+import { ArrElement } from '../typeUtils'
 
 export type PullRequestFileResponse =
   RestEndpointMethodTypes['pulls']['listFiles']['response']
-
-type ArrElement<ArrType> = ArrType extends readonly (infer ElementType)[]
-  ? ElementType
-  : never
 
 export type PullRequestFile = ArrElement<PullRequestFileResponse['data']>
 type CreateReviewCommentRequest =
