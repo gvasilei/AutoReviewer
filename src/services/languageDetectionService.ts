@@ -1,12 +1,16 @@
-// eslint-disable-next-line filenames/match-regex
-export class LanguageDetectionService {
-  detectLanguage = (filename: string): Language | undefined => {
+/* eslint-disable filenames/match-regex */
+import { Option, Context } from "effect"
+
+
+export interface LanguageDetectionService {
+  detectLanguage: (filename: string) => Option.Option<Language>
+}
+
+export const LanguageDetectionService = Context.Tag<LanguageDetectionService>()
+export class LanguageDetectionServiceImpl implements LanguageDetectionService {
+  detectLanguage = (filename: string): Option.Option<Language> => {
     const extension = this.getFileExtension(filename)
-    if (extension in extensionToLanguageMap) {
-      return extensionToLanguageMap[extension as LanguageKey]
-    } else {
-      return undefined
-    }
+    return Option.fromNullable(extensionToLanguageMap[extension as LanguageKey])
   }
 
   private getFileExtension(filename: string): string {

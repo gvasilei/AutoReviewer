@@ -6,12 +6,23 @@ import type { PullRequestEvent } from '@octokit/webhooks-definitions/schema'
 
 import { ChatOpenAI } from 'langchain/chat_models/openai'
 import { BaseChatModel } from 'langchain/dist/chat_models/base'
-import { CodeReviewService } from './services/codeReviewService'
+import {
+  CodeReviewService,
+  CodeReviewServiceImpl
+} from './services/codeReviewService'
 import {
   PullRequestService,
+  PullRequestServiceImpl,
   PullRequestFile
 } from './services/pullRequestService'
-import { LanguageDetectionService } from './services/languageDetectionService'
+import {
+  LanguageDetectionService,
+  LanguageDetectionServiceImpl
+} from './services/languageDetectionService'
+import { GitHub } from '@actions/github/lib/utils'
+
+import { Effect, Context, Layer, Match, pipe } from "effect"
+
 
 config()
 
@@ -30,78 +41,123 @@ export const run = async (): Promise<void> => {
     modelName
   })
 
-  const [codeReviewService, pullRequestService] = initializeServices(
-    model,
-    githubToken
-  )
+  const MainLive = initializeServices(model, githubToken)
 
-  if (github.context.eventName === 'pull_request') {
-    const pullRequestPayload = github.context.payload as PullRequestEvent
-
-    let files: PullRequestFile[] = []
-    try {
-      core.info(
-        `repoName: ${repo} pull_number: ${context.payload.number} owner: ${owner} sha: ${pullRequestPayload.pull_request.head.sha}`
+  const program = Match.value(context.eventName).pipe(
+    Match.when('pull_request', () => {
+      const excludeFilePatterns = pipe(
+        Effect.sync(() => github.context.payload as PullRequestEvent),
+        Effect.tap(pullRequestPayload =>
+          Effect.sync(() => {
+            core.info(
+              `repoName: ${repo} pull_number: ${context.payload.number} owner: ${owner} sha: ${pullRequestPayload.pull_request.head.sha}`
+            )
+          })
+        ),
+        Effect.map(() =>
+          core
+            .getInput('exclude_files')
+            .split(',')
+            .map(_ => _.trim())
+        )
       )
 
-      const excludeFilePatterns = core
-        .getInput('exclude_files')
-        .split(',')
-        .map(_ => _.trim())
-
-      files = await pullRequestService.getFilesForReview(
-        owner,
-        repo,
-        context.payload.number,
-        excludeFilePatterns
-      )
-    } catch (error) {
-      if (error instanceof Error) {
-        core.error(error.stack || '')
-        core.setFailed(error.message)
-      }
-    }
-
-    for (const file of files) {
-      try {
-        const res = await codeReviewService.codeReviewFor(file)
-        const patch = file.patch || ''
-
-        await pullRequestService.createReviewComment({
-          repo,
-          owner,
-          pull_number: context.payload.number,
-          commit_id: pullRequestPayload.pull_request.head.sha,
-          path: file.filename,
-          body: res.text,
-          position: patch.split('\n').length - 1
-        })
-      } catch (error) {
-        if (error instanceof Error) {
-          core.error(
-            `Failed creating review comment for ${file.filename}: ${error.message}`
+     return PullRequestService.pipe(
+        Effect.flatMap(pullRequestService =>
+          pullRequestService.getFilesForReview(
+            owner,
+            repo,
+            context.payload.number,
+            excludeFilePatterns
           )
+        ),
+        Effect.flatMap(files => 
+          Effect.forEach(files, file => CodeReviewService.pipe(
+            Effect.flatMap(codeReviewService =>
+              codeReviewService.codeReviewFor(file)
+            )
+          ))
+        )
+      )
+
+        /*if (error instanceof Error) {
+          core.error(error.stack || '')
+          core.setFailed(error.message)
+        }
+  
+
+      for (const file of files) {
+        try {
+          const res = await codeReviewService.codeReviewFor(file)
+          const patch = file.patch || ''
+
+          await pullRequestService.createReviewComment({
+            repo,
+            owner,
+            pull_number: context.payload.number,
+            commit_id: pullRequestPayload.pull_request.head.sha,
+            path: file.filename,
+            body: res.text,
+            position: patch.split('\n').length - 1
+          })
+        } catch (error) {
+          if (error instanceof Error) {
+            core.error(
+              `Failed creating review comment for ${file.filename}: ${error.message}`
+            )
+          }
         }
       }
-    }
-  } else {
-    core.setFailed('This action only works on pull_request events')
-  }
+      */
+    }),
+    Match.orElse(eventName => 
+      Effect.sync(() => {
+        core.setFailed(
+          `This action only works on pull_request events. Got: ${eventName}`
+        )
+      })
+    )
+  )
+
+  const runnable = Effect.provide(program, MainLive)
+
+  await Effect.runPromiseExit(runnable)
 }
 
 const initializeServices = (
   model: BaseChatModel,
   githubToken: string
-): [CodeReviewService, PullRequestService] => {
-  const languageDetectionService = new LanguageDetectionService()
-  const codeReviewService = new CodeReviewService(
-    model,
-    languageDetectionService
+): Layer.Layer<never, never, CodeReviewService | PullRequestService> => {
+  const LanguageDetectionServiceLive = Layer.succeed(
+    LanguageDetectionService,
+    LanguageDetectionService.of(new LanguageDetectionServiceImpl())
   )
-  const octokit = github.getOctokit(githubToken)
-  const pullRequestService = new PullRequestService(octokit)
 
-  return [codeReviewService, pullRequestService]
+  const CodeReviewServiceLive = Layer.effect(
+    CodeReviewService,
+    Effect.map(LanguageDetectionService, languageDetectionService =>
+      CodeReviewService.of(
+        new CodeReviewServiceImpl(model, languageDetectionService)
+      )
+    )
+  )
+
+  const octokitTag = Context.Tag<InstanceType<typeof GitHub>>()
+  const octokitLive = Layer.succeed(octokitTag, github.getOctokit(githubToken))
+
+  const PullRequestServiceLive = Layer.effect(
+    PullRequestService,
+    Effect.map(octokitTag, octokit =>
+      PullRequestService.of(new PullRequestServiceImpl(octokit))
+    )
+  )
+
+  const mainLive = Layer.merge(
+    LanguageDetectionServiceLive.pipe(Layer.provide(CodeReviewServiceLive)),
+    octokitLive.pipe(Layer.provide(PullRequestServiceLive))
+  )
+
+  return mainLive
 }
 
 run()

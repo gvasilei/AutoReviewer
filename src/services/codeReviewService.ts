@@ -10,7 +10,21 @@ import type { ChainValues } from 'langchain/dist/schema'
 import { PullRequestFile } from './pullRequestService'
 import parseDiff from 'parse-diff'
 import { LanguageDetectionService } from './languageDetectionService'
-export class CodeReviewService {
+import { Effect, Context } from "effect"
+
+
+export interface CodeReviewService {
+  codeReviewFor(
+    file: PullRequestFile
+  ): Effect.Effect<LanguageDetectionService, unknown, ChainValues>
+  codeReviewForChunks(
+    file: PullRequestFile
+  ): Effect.Effect<LanguageDetectionService, unknown, ChainValues>
+}
+
+export const CodeReviewService = Context.Tag<CodeReviewService>()
+
+export class CodeReviewServiceImpl {
   private llm: BaseChatModel
   private chatPrompt = ChatPromptTemplate.fromPromptMessages([
     SystemMessagePromptTemplate.fromTemplate(
@@ -41,32 +55,37 @@ export class CodeReviewService {
     this.languageDetectionService = languageDetectionService
   }
 
-  async codeReviewFor(file: PullRequestFile): Promise<ChainValues> {
+  codeReviewFor(
+    file: PullRequestFile
+  ): Effect.Effect<LanguageDetectionService, unknown, ChainValues> {
     const programmingLanguage = this.languageDetectionService.detectLanguage(
       file.filename
     )
-    return await this.chain.call({
-      lang: programmingLanguage,
-      diff: file.patch
-    })
+    return Effect.tryPromise(() =>
+      this.chain.call({
+        lang: programmingLanguage,
+        diff: file.patch
+      })
+    )
   }
 
-  async codeReviewForChunks(file: PullRequestFile): Promise<ChainValues> {
+  codeReviewForChunks(
+    file: PullRequestFile
+  ): Effect.Effect<LanguageDetectionService, unknown, ChainValues> {
     const programmingLanguage = this.languageDetectionService.detectLanguage(
       file.filename
     )
     const fileDiff = parseDiff(file.patch)[0]
-    const chunkReviews: ChainValues[] = []
 
-    for (const chunk of fileDiff.chunks) {
-      const chunkReview = await this.chain.call({
-        lang: programmingLanguage,
-        diff: chunk.content
-      })
+    const codeReviewEffects = fileDiff.chunks.map(chunk =>
+      Effect.tryPromise(() =>
+        this.chain.call({
+          lang: programmingLanguage,
+          diff: chunk.content
+        })
+      )
+    )
 
-      chunkReviews.push(chunkReview)
-    }
-
-    return chunkReviews
+    return Effect.all(codeReviewEffects)
   }
 }

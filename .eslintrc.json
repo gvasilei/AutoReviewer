@@ -39,13 +39,14 @@
       "@typescript-eslint/prefer-function-type": "warn",
       "@typescript-eslint/prefer-includes": "error",
       "@typescript-eslint/prefer-string-starts-ends-with": "error",
-      "@typescript-eslint/promise-function-async": "error",
+      "@typescript-eslint/promise-function-async": "off",
       "@typescript-eslint/require-array-sort-compare": "error",
       "@typescript-eslint/restrict-plus-operands": "error",
       "semi": "off",
       "@typescript-eslint/semi": ["error", "never"],
       "@typescript-eslint/type-annotation-spacing": "error",
-      "@typescript-eslint/unbound-method": "error"
+      "@typescript-eslint/unbound-method": "error",
+      "no-redeclare": "off"
     },
     "env": {
       "node": true,
