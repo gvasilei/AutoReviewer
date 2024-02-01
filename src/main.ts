@@ -26,7 +26,7 @@ import { Effect, Context, Layer, Match, pipe } from "effect"
 
 config()
 
-export const run = async (): Promise<void> => {
+export const run = (): void => {
   const openAIApiKey = core.getInput('openai_api_key')
   const githubToken = core.getInput('github_token')
   const modelName = core.getInput('model_name')
@@ -62,23 +62,44 @@ export const run = async (): Promise<void> => {
         )
       )
 
-     return PullRequestService.pipe(
-        Effect.flatMap(pullRequestService =>
-          pullRequestService.getFilesForReview(
-            owner,
-            repo,
-            context.payload.number,
-            excludeFilePatterns
-          )
-        ),
-        Effect.flatMap(files => 
-          Effect.forEach(files, file => CodeReviewService.pipe(
-            Effect.flatMap(codeReviewService =>
-              codeReviewService.codeReviewFor(file)
+     return pipe(
+      excludeFilePatterns,
+      Effect.flatMap(excludeFilePatterns =>     
+        PullRequestService.pipe(
+          Effect.flatMap(pullRequestService =>
+            pullRequestService.getFilesForReview(
+              owner,
+              repo,
+              context.payload.number,
+              excludeFilePatterns
             )
-          ))
+          ),
+          Effect.flatMap(files => 
+            Effect.forEach(files, file => CodeReviewService.pipe(
+              Effect.flatMap(codeReviewService =>
+                codeReviewService.codeReviewFor(file)
+              ),
+              Effect.flatMap(res =>
+                PullRequestService.pipe(
+                  Effect.flatMap(pullRequestService =>
+                    pullRequestService.createReviewComment({
+                      repo,
+                      owner,
+                      pull_number: context.payload.number,
+                      commit_id: context.payload.pull_request?.head.sha,
+                      path: file.filename,
+                      body: res.text,
+                      position: file.patch?.split('\n').length ?? 1 - 1
+                    })
+                  )
+                )
+              )
+            ))
+          )
         )
       )
+     )
+    }),
 
         /*if (error instanceof Error) {
           core.error(error.stack || '')
@@ -109,7 +130,7 @@ export const run = async (): Promise<void> => {
         }
       }
       */
-    }),
+
     Match.orElse(eventName => 
       Effect.sync(() => {
         core.setFailed(
@@ -121,13 +142,13 @@ export const run = async (): Promise<void> => {
 
   const runnable = Effect.provide(program, MainLive)
 
-  await Effect.runPromiseExit(runnable)
+  Effect.runPromiseExit(runnable)
 }
 
 const initializeServices = (
   model: BaseChatModel,
   githubToken: string
-): Layer.Layer<never, never, CodeReviewService | PullRequestService> => {
+) => {
   const LanguageDetectionServiceLive = Layer.succeed(
     LanguageDetectionService,
     LanguageDetectionService.of(new LanguageDetectionServiceImpl())
