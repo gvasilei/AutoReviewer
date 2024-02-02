@@ -1,4 +1,3 @@
-import 'core-js/actual/structured-clone'
 import { config } from 'dotenv'
 import * as core from '@actions/core'
 import * as github from '@actions/github'
@@ -62,8 +61,7 @@ export const run = (): void => {
         )
       )
 
-     return pipe(
-      excludeFilePatterns,
+     return excludeFilePatterns.pipe(
       Effect.flatMap(excludeFilePatterns =>     
         PullRequestService.pipe(
           Effect.flatMap(pullRequestService =>

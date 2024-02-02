@@ -99,7 +99,7 @@ export class PullRequestServiceImpl {
   createReviewComment = (
     requestOptions: CreateReviewCommentRequest
   ): Effect.Effect<InstanceType<typeof GitHub>, Error, void> => {
-    return Effect.promise(() =>
+    return Effect.tryPromise(() =>
       this.octokit.rest.pulls.createReviewComment(requestOptions)
     )
   }
@@ -107,7 +107,7 @@ export class PullRequestServiceImpl {
   createReview = (
     requestOptions: CreateReviewRequest
   ): Effect.Effect<InstanceType<typeof GitHub>, Error, void> => {
-    return Effect.promise(() =>
+    return Effect.tryPromise(() =>
       this.octokit.rest.pulls.createReview(requestOptions)
     )
   }
