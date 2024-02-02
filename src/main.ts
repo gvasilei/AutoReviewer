@@ -12,7 +12,6 @@ import {
 import {
   PullRequestService,
   PullRequestServiceImpl,
-  PullRequestFile
 } from './services/pullRequestService'
 import {
   LanguageDetectionService,
@@ -20,12 +19,12 @@ import {
 } from './services/languageDetectionService'
 import { GitHub } from '@actions/github/lib/utils'
 
-import { Effect, Context, Layer, Match, pipe } from "effect"
+import { Effect, Context, Layer, Match, pipe, Exit } from "effect"
 
 
 config()
 
-export const run = (): void => {
+export const run = async(): Promise<void> => {
   const openAIApiKey = core.getInput('openai_api_key')
   const githubToken = core.getInput('github_token')
   const modelName = core.getInput('model_name')
@@ -99,36 +98,6 @@ export const run = (): void => {
      )
     }),
 
-        /*if (error instanceof Error) {
-          core.error(error.stack || '')
-          core.setFailed(error.message)
-        }
-  
-
-      for (const file of files) {
-        try {
-          const res = await codeReviewService.codeReviewFor(file)
-          const patch = file.patch || ''
-
-          await pullRequestService.createReviewComment({
-            repo,
-            owner,
-            pull_number: context.payload.number,
-            commit_id: pullRequestPayload.pull_request.head.sha,
-            path: file.filename,
-            body: res.text,
-            position: patch.split('\n').length - 1
-          })
-        } catch (error) {
-          if (error instanceof Error) {
-            core.error(
-              `Failed creating review comment for ${file.filename}: ${error.message}`
-            )
-          }
-        }
-      }
-      */
-
     Match.orElse(eventName => 
       Effect.sync(() => {
         core.setFailed(
@@ -139,8 +108,11 @@ export const run = (): void => {
   )
 
   const runnable = Effect.provide(program, MainLive)
+  const result = await Effect.runPromiseExit(runnable)
 
-  Effect.runPromiseExit(runnable)
+  if (Exit.isFailure(result)) {
+    core.setFailed(result.cause.toString())
+  }
 }
 
 const initializeServices = (
