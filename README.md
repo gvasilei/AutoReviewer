@@ -9,7 +9,7 @@ A GitHub action uses OpenAI's GPT-4 to perform automated code reviews. When you 
 ## 🚀 How to use it
 
 - Get an API Key from [OpenAI](https://platform.openai.com/account/api-keys)
-- Add it as a Github secret
+- Add it as a GitHub secret
 - Setup an action that runs on every PR
 
 ```
@@ -24,7 +24,7 @@ jobs:
       pull-requests: write
     steps:
       - uses: actions/checkout@v3
-      - uses: gvasilei/AutoReviewer@0.4
+      - uses: gvasilei/AutoReviewer@0.4.1
         env:
           NODE_OPTIONS: '--experimental-fetch'
         with:
@@ -47,7 +47,7 @@ jobs:
       pull-requests: write
     steps:
       - uses: actions/checkout@v3
-      - uses: gvasilei/AutoReviewer@0.4
+      - uses: gvasilei/AutoReviewer@0.4.1
         env:
           NODE_OPTIONS: '--experimental-fetch'
         with:
