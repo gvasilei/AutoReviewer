@@ -19,6 +19,9 @@ on: # rebuild any PRs and main branch changes
 jobs:
   code-review:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
     steps:
       - uses: actions/checkout@v3
       - uses: gvasilei/AutoReviewer@0.4
@@ -39,6 +42,9 @@ jobs:
   code-review:
     if: ${{ contains( github.event.label.name, 'AutoReview') }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
     steps:
       - uses: actions/checkout@v3
       - uses: gvasilei/AutoReviewer@0.4
