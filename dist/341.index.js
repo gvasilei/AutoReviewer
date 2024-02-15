@@ -3,7 +3,7 @@ exports.id = 341;
 exports.ids = [341];
 exports.modules = {
 
-/***/ 8341:
+/***/ 38341:
 /***/ ((__unused_webpack___webpack_module__, __webpack_exports__, __webpack_require__) => {
 
 // ESM COMPAT FLAG
@@ -15,17 +15,17 @@ __webpack_require__.d(__webpack_exports__, {
 });
 
 // EXTERNAL MODULE: ./node_modules/langchain/dist/chains/base.js
-var base = __webpack_require__(3197);
+var base = __webpack_require__(73197);
 // EXTERNAL MODULE: ./node_modules/langchain/dist/chains/llm_chain.js
-var llm_chain = __webpack_require__(6726);
+var llm_chain = __webpack_require__(56726);
 // EXTERNAL MODULE: ./node_modules/langchain/dist/chains/combine_docs_chain.js
-var combine_docs_chain = __webpack_require__(9184);
+var combine_docs_chain = __webpack_require__(63608);
 // EXTERNAL MODULE: ./node_modules/langchain/dist/prompts/prompt.js
-var prompts_prompt = __webpack_require__(3379);
+var prompts_prompt = __webpack_require__(23379);
 // EXTERNAL MODULE: ./node_modules/langchain/dist/schema/index.js
-var schema = __webpack_require__(8102);
+var schema = __webpack_require__(78102);
 // EXTERNAL MODULE: ./node_modules/langchain/dist/prompts/base.js
-var prompts_base = __webpack_require__(5411);
+var prompts_base = __webpack_require__(55411);
 ;// CONCATENATED MODULE: ./node_modules/langchain/dist/prompts/chat.js
 
 
@@ -395,9 +395,9 @@ const map_reduce_prompts_COMBINE_PROMPT_SELECTOR =
 ]);
 
 // EXTERNAL MODULE: ./node_modules/langchain/dist/prompts/few_shot.js
-var few_shot = __webpack_require__(5806);
+var few_shot = __webpack_require__(10609);
 // EXTERNAL MODULE: ./node_modules/langchain/dist/prompts/template.js
-var template = __webpack_require__(837);
+var template = __webpack_require__(30837);
 ;// CONCATENATED MODULE: ./node_modules/langchain/dist/prompts/index.js
 
 
@@ -626,16 +626,16 @@ class VectorDBQAChain extends base/* BaseChain */.l {
 
 /***/ }),
 
-/***/ 5806:
+/***/ 10609:
 /***/ ((__unused_webpack___webpack_module__, __webpack_exports__, __webpack_require__) => {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
 /* harmony export */   "FewShotPromptTemplate": () => (/* binding */ FewShotPromptTemplate)
 /* harmony export */ });
-/* harmony import */ var _base_js__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(5411);
-/* harmony import */ var _template_js__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(837);
-/* harmony import */ var _prompt_js__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(3379);
+/* harmony import */ var _base_js__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(55411);
+/* harmony import */ var _template_js__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(30837);
+/* harmony import */ var _prompt_js__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(23379);
 
 
 

@@ -2,14 +2,14 @@ exports.id = 171;
 exports.ids = [171];
 exports.modules = {
 
-/***/ 3171:
+/***/ 43171:
 /***/ ((__unused_webpack_module, exports, __webpack_require__) => {
 
-const wasm = __webpack_require__(300);
+const wasm = __webpack_require__(10300);
 let imports = {};
 imports["./tiktoken_bg.js"] = wasm;
-const path = __webpack_require__(1017);
-const fs = __webpack_require__(7147);
+const path = __webpack_require__(71017);
+const fs = __webpack_require__(57147);
 
 const candidates = __dirname
   .split(path.sep)
@@ -49,7 +49,7 @@ exports.Tiktoken = wasm["Tiktoken"];
 
 /***/ }),
 
-/***/ 300:
+/***/ 10300:
 /***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
 /* module decorator */ module = __webpack_require__.nmd(module);
