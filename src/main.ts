@@ -12,14 +12,11 @@ import {
 import {
   PullRequestService,
   PullRequestServiceImpl,
+  octokitTag
 } from './services/pullRequestService'
-import {
-  LanguageDetectionService,
-  LanguageDetectionServiceImpl
-} from './services/languageDetectionService'
-import { GitHub } from '@actions/github/lib/utils'
+import { LanguageDetectionService } from './services/languageDetectionService'
 
-import { Effect, Context, Layer, Match, pipe, Exit } from "effect"
+import { Effect, Layer, Match, pipe, Exit } from "effect"
 
 
 config()
@@ -60,7 +57,7 @@ export const run = async(): Promise<void> => {
         )
       )
 
-     return excludeFilePatterns.pipe(
+     const a = excludeFilePatterns.pipe(
       Effect.flatMap(excludeFilePatterns =>     
         PullRequestService.pipe(
           Effect.flatMap(pullRequestService =>
@@ -96,6 +93,8 @@ export const run = async(): Promise<void> => {
         )
       )
      )
+
+     return a;
     }),
 
     Match.orElse(eventName => 
@@ -119,33 +118,31 @@ const initializeServices = (
   model: BaseChatModel,
   githubToken: string
 ) => {
-  const LanguageDetectionServiceLive = Layer.succeed(
-    LanguageDetectionService,
-    LanguageDetectionService.of(new LanguageDetectionServiceImpl())
-  )
 
   const CodeReviewServiceLive = Layer.effect(
     CodeReviewService,
     Effect.map(LanguageDetectionService, languageDetectionService =>
       CodeReviewService.of(
-        new CodeReviewServiceImpl(model, languageDetectionService)
+        new CodeReviewServiceImpl(model)
       )
     )
   )
 
-  const octokitTag = Context.Tag<InstanceType<typeof GitHub>>()
   const octokitLive = Layer.succeed(octokitTag, github.getOctokit(githubToken))
 
   const PullRequestServiceLive = Layer.effect(
     PullRequestService,
     Effect.map(octokitTag, octokit =>
-      PullRequestService.of(new PullRequestServiceImpl(octokit))
+      PullRequestService.of(new PullRequestServiceImpl())
     )
   )
 
-  const mainLive = Layer.merge(
-    LanguageDetectionServiceLive.pipe(Layer.provide(CodeReviewServiceLive)),
-    octokitLive.pipe(Layer.provide(PullRequestServiceLive))
+  const mainLive = CodeReviewServiceLive.pipe(
+    Layer.merge(PullRequestServiceLive),
+    Layer.merge(LanguageDetectionService.Live),
+    Layer.merge(octokitLive),
+    Layer.provide(LanguageDetectionService.Live),
+    Layer.provide(octokitLive)
   )
 
   return mainLive

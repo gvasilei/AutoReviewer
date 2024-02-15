@@ -5,6 +5,7 @@ import { minimatch } from 'minimatch'
 import * as core from '@actions/core'
 import { ArrElement } from '../typeUtils'
 import { Effect, Context, pipe } from "effect"
+import { UnknownException } from 'effect/Cause'
 
 export type PullRequestFileResponse =
   RestEndpointMethodTypes['pulls']['listFiles']['response']
@@ -22,61 +23,40 @@ export interface PullRequestService {
     repo: string,
     pullNumber: number,
     excludeFilePatterns: string[]
-  ) => Effect.Effect<InstanceType<typeof GitHub>, unknown, PullRequestFile[]>
+  ) => Effect.Effect<PullRequestFile[], UnknownException, InstanceType<typeof GitHub>>
   createReviewComment: (
     requestOptions: CreateReviewCommentRequest
-  ) => Effect.Effect<InstanceType<typeof GitHub>, unknown, void>
+  ) => Effect.Effect<void, unknown, InstanceType<typeof GitHub>>
   createReview: (
     requestOptions: CreateReviewRequest
-  ) => Effect.Effect<InstanceType<typeof GitHub>, unknown, void>
+  ) => Effect.Effect<void, unknown, InstanceType<typeof GitHub>>
 }
 
-export const PullRequestService = Context.Tag<PullRequestService>()
-export class PullRequestServiceImpl {
-  private octokit: InstanceType<typeof GitHub>
+export const octokitTag = Context.GenericTag<InstanceType<typeof GitHub>>("octokit")
 
-  constructor(octokit: InstanceType<typeof GitHub>) {
-    this.octokit = octokit
-  }
+export const PullRequestService = Context.GenericTag<PullRequestService>("PullRequestService")
+export class PullRequestServiceImpl {
 
   getFilesForReview = (
     owner: string,
     repo: string,
     pullNumber: number,
     excludeFilePatterns: string[]
-  ): Effect.Effect<InstanceType<typeof GitHub>, unknown, PullRequestFile[]> => {
-    // TODO - Check program return type
-    const program = pipe(
-      Effect.tryPromise(() =>
-        this.octokit.rest.pulls.listFiles({
-          owner,
-          repo,
-          pull_number: pullNumber
-        })
-      ),
+  ): Effect.Effect<PullRequestFile[], UnknownException, InstanceType<typeof GitHub>> => {
+    const program = octokitTag.pipe(
+      Effect.flatMap(octokit => Effect.tryPromise(() =>
+        octokit.rest.pulls.listFiles({ owner, repo, pull_number: pullNumber })
+      )),
       Effect.tap(pullRequestFiles =>
-        Effect.sync(() =>
-          core.info(
-            `Original files for review: ${pullRequestFiles.data.map(
-              _ => _.filename
-            )}`
-          )
-        )
+        Effect.sync(() => core.info(
+          `Original files for review: ${pullRequestFiles.data.map(_ => _.filename)}`
+        ))
       ),
       Effect.flatMap(pullRequestFiles =>
         Effect.sync(() =>
           pullRequestFiles.data.filter(file => {
             return (
-              excludeFilePatterns.every(pattern => {
-                core.debug(
-                  `pattern: ${pattern} file: ${file.filename} ${!minimatch(
-                    file.filename,
-                    pattern,
-                    { matchBase: true }
-                  )}`
-                )
-                return !minimatch(file.filename, pattern, { matchBase: true })
-              }) &&
+              excludeFilePatterns.every(pattern => !minimatch(file.filename, pattern, { matchBase: true })) &&
               (file.status === 'modified' ||
                 file.status === 'added' ||
                 file.status === 'changed')
@@ -85,11 +65,9 @@ export class PullRequestServiceImpl {
         )
       ),
       Effect.tap(filteredFiles =>
-        Effect.sync(() =>
-          core.info(
-            `Filtered files for review: ${filteredFiles.map(_ => _.filename)}`
-          )
-        )
+        Effect.sync(() => core.info(
+          `Filtered files for review: ${filteredFiles.map(_ => _.filename)}`
+        ))
       )
     )
 
@@ -98,17 +76,21 @@ export class PullRequestServiceImpl {
 
   createReviewComment = (
     requestOptions: CreateReviewCommentRequest
-  ): Effect.Effect<InstanceType<typeof GitHub>, Error, void> => {
-    return Effect.tryPromise(() =>
-      this.octokit.rest.pulls.createReviewComment(requestOptions)
+  ): Effect.Effect<void, Error, InstanceType<typeof GitHub>> => {
+    return octokitTag.pipe(
+      Effect.flatMap(octokit => Effect.tryPromise(() =>
+        octokit.rest.pulls.createReviewComment(requestOptions)
+      ))
     )
   }
 
   createReview = (
     requestOptions: CreateReviewRequest
-  ): Effect.Effect<InstanceType<typeof GitHub>, Error, void> => {
-    return Effect.tryPromise(() =>
-      this.octokit.rest.pulls.createReview(requestOptions)
+  ): Effect.Effect<void, Error, InstanceType<typeof GitHub>> => {
+    return octokitTag.pipe(
+      Effect.flatMap(octokit => Effect.tryPromise(() =>
+        octokit.rest.pulls.createReview(requestOptions)
+      ))
     )
   }
 }

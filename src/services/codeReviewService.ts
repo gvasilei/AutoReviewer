@@ -11,18 +11,19 @@ import { PullRequestFile } from './pullRequestService'
 import parseDiff from 'parse-diff'
 import { LanguageDetectionService } from './languageDetectionService'
 import { Effect, Context } from "effect"
+import { NoSuchElementException, UnknownException } from 'effect/Cause'
 
 
 export interface CodeReviewService {
   codeReviewFor(
     file: PullRequestFile
-  ): Effect.Effect<LanguageDetectionService, unknown, ChainValues>
+  ): Effect.Effect<ChainValues, NoSuchElementException | UnknownException, LanguageDetectionService>
   codeReviewForChunks(
     file: PullRequestFile
-  ): Effect.Effect<LanguageDetectionService, unknown, ChainValues>
+  ): Effect.Effect<ChainValues, NoSuchElementException | UnknownException, LanguageDetectionService>
 }
 
-export const CodeReviewService = Context.Tag<CodeReviewService>()
+export const CodeReviewService = Context.GenericTag<CodeReviewService>("CodeReviewService")
 
 export class CodeReviewServiceImpl {
   private llm: BaseChatModel
@@ -41,51 +42,41 @@ export class CodeReviewServiceImpl {
     {diff}`)
   ])
   private chain: LLMChain<string>
-  private languageDetectionService: LanguageDetectionService
 
   constructor(
     llm: BaseChatModel,
-    languageDetectionService: LanguageDetectionService
   ) {
     this.llm = llm
     this.chain = new LLMChain({
       prompt: this.chatPrompt,
       llm: this.llm
     })
-    this.languageDetectionService = languageDetectionService
   }
 
-  codeReviewFor(
-    file: PullRequestFile
-  ): Effect.Effect<LanguageDetectionService, unknown, ChainValues> {
-    const programmingLanguage = this.languageDetectionService.detectLanguage(
-      file.filename
-    )
-    return Effect.tryPromise(() =>
-      this.chain.call({
-        lang: programmingLanguage,
-        diff: file.patch
-      })
-    )
-  }
+  codeReviewFor = (file: PullRequestFile): Effect.Effect<ChainValues, NoSuchElementException | UnknownException, LanguageDetectionService> => LanguageDetectionService.pipe(
+    Effect.flatMap(languageDetectionService => languageDetectionService.detectLanguage(file.filename)),
+    Effect.flatMap( lang => Effect.tryPromise(() => this.chain.call({ lang: lang, diff: file.patch })))
+  )
 
-  codeReviewForChunks(
-    file: PullRequestFile
-  ): Effect.Effect<LanguageDetectionService, unknown, ChainValues> {
-    const programmingLanguage = this.languageDetectionService.detectLanguage(
-      file.filename
+  codeReviewForChunks(file: PullRequestFile): Effect.Effect<ChainValues[], NoSuchElementException | UnknownException, LanguageDetectionService> {
+    const programmingLanguage = LanguageDetectionService.pipe(
+      Effect.flatMap(languageDetectionService => languageDetectionService.detectLanguage(file.filename))
     )
-    const fileDiff = parseDiff(file.patch)[0]
+    const fileDiff = Effect.sync(() => parseDiff(file.patch)[0])
 
-    const codeReviewEffects = fileDiff.chunks.map(chunk =>
-      Effect.tryPromise(() =>
-        this.chain.call({
-          lang: programmingLanguage,
-          diff: chunk.content
-        })
+    return Effect.all([programmingLanguage, fileDiff]).pipe(
+      Effect.flatMap(([lang, fileDiff]) =>
+        Effect.all(
+          fileDiff.chunks.map(chunk =>
+            Effect.tryPromise(() =>
+              this.chain.call({
+                lang: lang,
+                diff: chunk.content
+              })
+            )
+          )
+        )
       )
     )
-
-    return Effect.all(codeReviewEffects)
   }
 }
