@@ -1,22 +1,25 @@
 /* eslint-disable filenames/match-regex */
-import { Option, Context, Effect, Layer } from "effect"
-
+import { Option, Context, Effect, Layer } from 'effect'
 
 const makeLanguageDetectionService = Effect.sync(() => {
   return {
     detectLanguage: (filename: string): Option.Option<Language> => {
       const extension = getFileExtension(filename)
-      return Option.fromNullable(extensionToLanguageMap[extension as LanguageKey])
+      return Option.fromNullable(
+        extensionToLanguageMap[extension as LanguageKey]
+      )
     }
   }
 })
 
-export class LanguageDetectionService extends Context.Tag("LanguageDetectionService")<
+export class LanguageDetectionService extends Context.Tag(
+  'LanguageDetectionService'
+)<
   LanguageDetectionService,
   Effect.Effect.Success<typeof makeLanguageDetectionService>
-  >() {
-    static Live = Layer.effect(this, makeLanguageDetectionService)
-  }
+>() {
+  static Live = Layer.effect(this, makeLanguageDetectionService)
+}
 
 const getFileExtension = (filename: string): string => {
   const extension = filename.split('.').pop()

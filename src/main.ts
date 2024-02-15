@@ -16,12 +16,11 @@ import {
 } from './services/pullRequestService'
 import { LanguageDetectionService } from './services/languageDetectionService'
 
-import { Effect, Layer, Match, pipe, Exit } from "effect"
-
+import { Effect, Layer, Match, pipe, Exit } from 'effect'
 
 config()
 
-export const run = async(): Promise<void> => {
+export const run = async (): Promise<void> => {
   const openAIApiKey = core.getInput('openai_api_key')
   const githubToken = core.getInput('github_token')
   const modelName = core.getInput('model_name')
@@ -57,47 +56,49 @@ export const run = async(): Promise<void> => {
         )
       )
 
-     const a = excludeFilePatterns.pipe(
-      Effect.flatMap(excludeFilePatterns =>     
-        PullRequestService.pipe(
-          Effect.flatMap(pullRequestService =>
-            pullRequestService.getFilesForReview(
-              owner,
-              repo,
-              context.payload.number,
-              excludeFilePatterns
-            )
-          ),
-          Effect.flatMap(files => 
-            Effect.forEach(files, file => CodeReviewService.pipe(
-              Effect.flatMap(codeReviewService =>
-                codeReviewService.codeReviewFor(file)
-              ),
-              Effect.flatMap(res =>
-                PullRequestService.pipe(
-                  Effect.flatMap(pullRequestService =>
-                    pullRequestService.createReviewComment({
-                      repo,
-                      owner,
-                      pull_number: context.payload.number,
-                      commit_id: context.payload.pull_request?.head.sha,
-                      path: file.filename,
-                      body: res.text,
-                      position: file.patch?.split('\n').length ?? 1 - 1
-                    })
+      const a = excludeFilePatterns.pipe(
+        Effect.flatMap(excludeFilePatterns =>
+          PullRequestService.pipe(
+            Effect.flatMap(pullRequestService =>
+              pullRequestService.getFilesForReview(
+                owner,
+                repo,
+                context.payload.number,
+                excludeFilePatterns
+              )
+            ),
+            Effect.flatMap(files =>
+              Effect.forEach(files, file =>
+                CodeReviewService.pipe(
+                  Effect.flatMap(codeReviewService =>
+                    codeReviewService.codeReviewFor(file)
+                  ),
+                  Effect.flatMap(res =>
+                    PullRequestService.pipe(
+                      Effect.flatMap(pullRequestService =>
+                        pullRequestService.createReviewComment({
+                          repo,
+                          owner,
+                          pull_number: context.payload.number,
+                          commit_id: context.payload.pull_request?.head.sha,
+                          path: file.filename,
+                          body: res.text,
+                          position: file.patch?.split('\n').length ?? 1 - 1
+                        })
+                      )
+                    )
                   )
                 )
               )
-            ))
+            )
           )
         )
       )
-     )
 
-     return a;
+      return a
     }),
 
-    Match.orElse(eventName => 
+    Match.orElse(eventName =>
       Effect.sync(() => {
         core.setFailed(
           `This action only works on pull_request events. Got: ${eventName}`
@@ -114,17 +115,11 @@ export const run = async(): Promise<void> => {
   }
 }
 
-const initializeServices = (
-  model: BaseChatModel,
-  githubToken: string
-) => {
-
+const initializeServices = (model: BaseChatModel, githubToken: string) => {
   const CodeReviewServiceLive = Layer.effect(
     CodeReviewService,
     Effect.map(LanguageDetectionService, languageDetectionService =>
-      CodeReviewService.of(
-        new CodeReviewServiceImpl(model)
-      )
+      CodeReviewService.of(new CodeReviewServiceImpl(model))
     )
   )
 
