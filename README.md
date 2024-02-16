@@ -4,7 +4,7 @@
 
 # 🤖 Automated Code Reviews powered by ChatGPT 🤖
 
-A GitHub action uses OpenAI's GPT-4 to perform automated code reviews. When you create a PR, our action will automatically review the code and suggest changes, just like a human code reviewer would. 
+A GitHub action uses OpenAI's GPT-4 to perform automated code reviews. When you create a PR, our action will automatically review the code and suggest changes, just like a human code reviewer would.
 
 ## 🚀 How to use it
 
@@ -12,7 +12,7 @@ A GitHub action uses OpenAI's GPT-4 to perform automated code reviews. When you 
 - Add it as a Github secret
 - Setup an action that runs on every PR
 
-```
+```YAML
 name: 'code-review'
 on: # rebuild any PRs and main branch changes
   pull_request:
@@ -30,7 +30,7 @@ jobs:
           exclude_files: '*.json, *.md, *.yml' # optionally exclude files based on a wildcard expression. 
 ```
 - Or when a label is added
-```
+```YAML
 name: 'code-review'
 on: # rebuild any PRs and main branch changes
   pull_request:
@@ -70,8 +70,8 @@ Using our GitHub action has many benefits, such as:
 
 ## 🤞 Limitations
 
-- This GitHub Action is still in early development. 
+- This GitHub Action is still in early development.
 - While the action supports both `gpt-4` and `gpt-3.5-turbo`, `gpt-4` gives much better suggestions.
 ## 🙌 Contributing
 
-If you have any ideas or improvements to our GitHub action, feel free to submit a PR. We welcome all contributions! 
+If you have any ideas or improvements to our GitHub action, feel free to submit a PR. We welcome all contributions!

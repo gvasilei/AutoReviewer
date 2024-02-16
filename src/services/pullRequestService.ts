@@ -4,7 +4,7 @@ import type { RestEndpointMethodTypes } from '@octokit/plugin-rest-endpoint-meth
 import { minimatch } from 'minimatch'
 import * as core from '@actions/core'
 import { ArrElement } from '../typeUtils'
-import { Effect, Context, pipe } from 'effect'
+import { Effect, Context } from 'effect'
 import { UnknownException } from 'effect/Cause'
 
 export type PullRequestFileResponse =

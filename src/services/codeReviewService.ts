@@ -72,7 +72,7 @@ export class CodeReviewServiceImpl {
       ),
       Effect.flatMap(lang =>
         Effect.tryPromise(() =>
-          this.chain.call({ lang: lang, diff: file.patch })
+          this.chain.call({ lang, diff: file.patch })
         )
       )
     )
@@ -92,9 +92,9 @@ export class CodeReviewServiceImpl {
     const fileDiff = Effect.sync(() => parseDiff(file.patch)[0])
 
     return Effect.all([programmingLanguage, fileDiff]).pipe(
-      Effect.flatMap(([lang, fileDiff]) =>
+      Effect.flatMap(([lang, fd]) =>
         Effect.all(
-          fileDiff.chunks.map(chunk =>
+          fd.chunks.map(chunk =>
             Effect.tryPromise(() =>
               this.chain.call({
                 lang: lang,
