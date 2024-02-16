@@ -7,7 +7,6 @@ import parseDiff from 'parse-diff'
 import { LanguageDetectionService } from './languageDetectionService'
 import { Effect, Context } from 'effect'
 import { NoSuchElementException, UnknownException } from 'effect/Cause'
-import * as core from '@actions/core'
 
 export interface CodeReviewService {
   codeReviewFor(
