@@ -71,6 +71,7 @@ export class PullRequestServiceImpl {
     requestOptions: CreateReviewCommentRequest
   ): Effect.Effect<void, Error, InstanceType<typeof GitHub>> => {
     return octokitTag.pipe(
+      Effect.tap(_ => core.info(`Creating review comment: ${requestOptions}`)),
       Effect.flatMap(octokit => Effect.tryPromise(() => octokit.rest.pulls.createReviewComment(requestOptions)))
     )
   }
