@@ -57,14 +57,14 @@ export const run = async (): Promise<void> => {
       )
 
       const a = excludeFilePatterns.pipe(
-        Effect.flatMap(excludeFilePatterns =>
+        Effect.flatMap(filePattens =>
           PullRequestService.pipe(
             Effect.flatMap(pullRequestService =>
               pullRequestService.getFilesForReview(
                 owner,
                 repo,
                 context.payload.number,
-                excludeFilePatterns
+                filePattens
               )
             ),
             Effect.flatMap(files =>
@@ -113,12 +113,13 @@ export const run = async (): Promise<void> => {
   if (Exit.isFailure(result)) {
     core.setFailed(result.cause.toString())
   }
+
 }
 
 const initializeServices = (model: BaseChatModel, githubToken: string) => {
   const CodeReviewServiceLive = Layer.effect(
     CodeReviewService,
-    Effect.map(LanguageDetectionService, languageDetectionService =>
+    Effect.map(LanguageDetectionService, _ =>
       CodeReviewService.of(new CodeReviewServiceImpl(model))
     )
   )
@@ -127,7 +128,7 @@ const initializeServices = (model: BaseChatModel, githubToken: string) => {
 
   const PullRequestServiceLive = Layer.effect(
     PullRequestService,
-    Effect.map(octokitTag, octokit =>
+    Effect.map(octokitTag, _ =>
       PullRequestService.of(new PullRequestServiceImpl())
     )
   )

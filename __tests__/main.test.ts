@@ -1,13 +1,10 @@
-import * as process from 'process'
-import * as cp from 'child_process'
-import * as path from 'path'
-import { expect, test, jest } from '@jest/globals'
 
-import * as core from '@actions/core'
+import { expect, jest } from '@jest/globals'
+
+/*jimport * as core from '@actions/core'
 import * as github from '@actions/github'
 import { CodeReviewService } from '../src/services/codeReviewService'
 import { PullRequestService } from '../src/services/pullRequestService'
-import { run } from '../src/main'
 
 jest.mock('@actions/core')
 jest.mock('@actions/github')
@@ -18,6 +15,8 @@ const mockedCore = jest.mocked(core)
 const mockedGitHub = jest.mocked(github)
 const mockedCodeReviewService = jest.mocked(CodeReviewService)
 const mockedPullRequestService = jest.mocked(PullRequestService)
+*/
+
 
 describe('run', () => {
   afterEach(() => {

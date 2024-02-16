@@ -1,9 +1,9 @@
 import * as github from '@actions/github'
-import { PullRequestService } from '../src/services/pullRequestService'
-import minimatch from 'minimatch'
+//import { PullRequestService } from '../src/services/pullRequestService'
+//import minimatch from 'minimatch'
 
 describe('PullRequestService', () => {
-  const mockOctokit = github.getOctokit('test-token')
+  //const mockOctokit = github.getOctokit('test-token')
   //const pullRequestService = new PullRequestService(mockOctokit)
 
   beforeEach(() => {
