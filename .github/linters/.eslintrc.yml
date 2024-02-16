@@ -80,5 +80,7 @@ rules:
     '@typescript-eslint/type-annotation-spacing': 'error',
     '@typescript-eslint/unbound-method': 'error',
     'no-redeclare': 'off',
-    'github/array-foreach': 'off'
+    'github/array-foreach': 'off',
+    "filenames/match-regex": [2, "^[a-z]+([A-Z][a-z0-9]+)*$", true]
+
   }
