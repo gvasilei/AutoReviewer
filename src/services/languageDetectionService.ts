@@ -4,16 +4,12 @@ const makeLanguageDetectionService = Effect.sync(() => {
   return {
     detectLanguage: (filename: string): Option.Option<Language> => {
       const extension = getFileExtension(filename)
-      return Option.fromNullable(
-        extensionToLanguageMap[extension as LanguageKey]
-      )
+      return Option.fromNullable(extensionToLanguageMap[extension as LanguageKey])
     }
   }
 })
 
-export class LanguageDetectionService extends Context.Tag(
-  'LanguageDetectionService'
-)<
+export class LanguageDetectionService extends Context.Tag('LanguageDetectionService')<
   LanguageDetectionService,
   Effect.Effect.Success<typeof makeLanguageDetectionService>
 >() {
