@@ -7,6 +7,8 @@ import parseDiff from 'parse-diff'
 import { LanguageDetectionService } from './languageDetectionService'
 import { Effect, Context } from 'effect'
 import { NoSuchElementException, UnknownException } from 'effect/Cause'
+import * as core from '@actions/core'
+
 
 export interface CodeReviewService {
   codeReviewFor(
@@ -50,6 +52,7 @@ export class CodeReviewServiceImpl {
   ): Effect.Effect<ChainValues, NoSuchElementException | UnknownException, LanguageDetectionService> =>
     LanguageDetectionService.pipe(
       Effect.flatMap(languageDetectionService => languageDetectionService.detectLanguage(file.filename)),
+      Effect.tap( l => Effect.sync(() => core.info(`language: ${l}, patch: ${file.patch}`))),
       Effect.flatMap(lang => Effect.tryPromise(() => this.chain.call({ lang, diff: file.patch })))
     )
 
