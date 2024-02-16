@@ -55,6 +55,7 @@ export const run = async (): Promise<void> => {
             Effect.flatMap(pullRequestService =>
               pullRequestService.getFilesForReview(owner, repo, context.payload.number, filePattens)
             ),
+            Effect.flatMap(files => Effect.sync(() => files.filter(file => file.patch !== undefined))),
             Effect.flatMap(files =>
               Effect.forEach(files, file =>
                 CodeReviewService.pipe(
