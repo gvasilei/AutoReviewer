@@ -1,4 +1,3 @@
-
 import { expect, jest } from '@jest/globals'
 
 /*jimport * as core from '@actions/core'
@@ -16,7 +15,6 @@ const mockedGitHub = jest.mocked(github)
 const mockedCodeReviewService = jest.mocked(CodeReviewService)
 const mockedPullRequestService = jest.mocked(PullRequestService)
 */
-
 
 describe('run', () => {
   afterEach(() => {

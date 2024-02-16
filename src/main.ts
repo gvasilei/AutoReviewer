@@ -113,7 +113,6 @@ export const run = async (): Promise<void> => {
   if (Exit.isFailure(result)) {
     core.setFailed(result.cause.toString())
   }
-
 }
 
 const initializeServices = (model: BaseChatModel, githubToken: string) => {
