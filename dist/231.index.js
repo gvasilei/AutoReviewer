@@ -3,15 +3,15 @@ exports.id = 231;
 exports.ids = [231,197,210];
 exports.modules = {
 
-/***/ 3197:
+/***/ 73197:
 /***/ ((__unused_webpack___webpack_module__, __webpack_exports__, __webpack_require__) => {
 
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
 /* harmony export */   "l": () => (/* binding */ BaseChain)
 /* harmony export */ });
-/* harmony import */ var _schema_index_js__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(8102);
-/* harmony import */ var _callbacks_manager_js__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(4908);
-/* harmony import */ var _base_language_index_js__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(7396);
+/* harmony import */ var _schema_index_js__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(78102);
+/* harmony import */ var _callbacks_manager_js__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(34908);
+/* harmony import */ var _base_language_index_js__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(57396);
 
 
 
@@ -105,31 +105,31 @@ class BaseChain extends _base_language_index_js__WEBPACK_IMPORTED_MODULE_1__/* .
     static async deserialize(data, values = {}) {
         switch (data._type) {
             case "llm_chain": {
-                const { LLMChain } = await __webpack_require__.e(/* import() */ 726).then(__webpack_require__.bind(__webpack_require__, 6726));
+                const { LLMChain } = await __webpack_require__.e(/* import() */ 726).then(__webpack_require__.bind(__webpack_require__, 56726));
                 return LLMChain.deserialize(data);
             }
             case "sequential_chain": {
-                const { SequentialChain } = await __webpack_require__.e(/* import() */ 210).then(__webpack_require__.bind(__webpack_require__, 7210));
+                const { SequentialChain } = await __webpack_require__.e(/* import() */ 210).then(__webpack_require__.bind(__webpack_require__, 97210));
                 return SequentialChain.deserialize(data);
             }
             case "simple_sequential_chain": {
-                const { SimpleSequentialChain } = await __webpack_require__.e(/* import() */ 210).then(__webpack_require__.bind(__webpack_require__, 7210));
+                const { SimpleSequentialChain } = await __webpack_require__.e(/* import() */ 210).then(__webpack_require__.bind(__webpack_require__, 97210));
                 return SimpleSequentialChain.deserialize(data);
             }
             case "stuff_documents_chain": {
-                const { StuffDocumentsChain } = await __webpack_require__.e(/* import() */ 608).then(__webpack_require__.bind(__webpack_require__, 9184));
+                const { StuffDocumentsChain } = await __webpack_require__.e(/* import() */ 608).then(__webpack_require__.bind(__webpack_require__, 63608));
                 return StuffDocumentsChain.deserialize(data);
             }
             case "map_reduce_documents_chain": {
-                const { MapReduceDocumentsChain } = await __webpack_require__.e(/* import() */ 608).then(__webpack_require__.bind(__webpack_require__, 9184));
+                const { MapReduceDocumentsChain } = await __webpack_require__.e(/* import() */ 608).then(__webpack_require__.bind(__webpack_require__, 63608));
                 return MapReduceDocumentsChain.deserialize(data);
             }
             case "refine_documents_chain": {
-                const { RefineDocumentsChain } = await __webpack_require__.e(/* import() */ 608).then(__webpack_require__.bind(__webpack_require__, 9184));
+                const { RefineDocumentsChain } = await __webpack_require__.e(/* import() */ 608).then(__webpack_require__.bind(__webpack_require__, 63608));
                 return RefineDocumentsChain.deserialize(data);
             }
             case "vector_db_qa": {
-                const { VectorDBQAChain } = await Promise.all(/* import() */[__webpack_require__.e(608), __webpack_require__.e(341)]).then(__webpack_require__.bind(__webpack_require__, 8341));
+                const { VectorDBQAChain } = await Promise.all(/* import() */[__webpack_require__.e(608), __webpack_require__.e(341)]).then(__webpack_require__.bind(__webpack_require__, 38341));
                 return VectorDBQAChain.deserialize(data, values);
             }
             default:
@@ -141,7 +141,7 @@ class BaseChain extends _base_language_index_js__WEBPACK_IMPORTED_MODULE_1__/* .
 
 /***/ }),
 
-/***/ 7210:
+/***/ 97210:
 /***/ ((__unused_webpack___webpack_module__, __webpack_exports__, __webpack_require__) => {
 
 // ESM COMPAT FLAG
@@ -154,7 +154,7 @@ __webpack_require__.d(__webpack_exports__, {
 });
 
 // EXTERNAL MODULE: ./node_modules/langchain/dist/chains/base.js
-var base = __webpack_require__(3197);
+var base = __webpack_require__(73197);
 ;// CONCATENATED MODULE: ./node_modules/langchain/dist/util/set.js
 /**
  * Source: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Set#implementing_basic_set_operations
@@ -456,4 +456,3 @@ class SimpleSequentialChain extends base/* BaseChain */.l {
 
 };
 ;
-//# sourceMappingURL=231.index.js.map

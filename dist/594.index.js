@@ -3,7 +3,7 @@ exports.id = 594;
 exports.ids = [594];
 exports.modules = {
 
-/***/ 724:
+/***/ 594:
 /***/ ((__unused_webpack___webpack_module__, __webpack_exports__, __webpack_require__) => {
 
 // ESM COMPAT FLAG
@@ -15,11 +15,11 @@ __webpack_require__.d(__webpack_exports__, {
 });
 
 // EXTERNAL MODULE: ./node_modules/browser-or-node/lib/index.js
-var lib = __webpack_require__(9107);
+var lib = __webpack_require__(59107);
 // EXTERNAL MODULE: ./node_modules/openai/dist/index.js
-var dist = __webpack_require__(9211);
+var dist = __webpack_require__(69211);
 // EXTERNAL MODULE: ./node_modules/axios/index.js
-var axios = __webpack_require__(6545);
+var axios = __webpack_require__(96545);
 ;// CONCATENATED MODULE: ./node_modules/langchain/dist/util/event-source-parse.js
 /* eslint-disable prefer-template */
 /* eslint-disable default-case */
@@ -582,11 +582,11 @@ function enhanceError(error, config, code, request, response) {
 }
 
 // EXTERNAL MODULE: ./node_modules/langchain/dist/schema/index.js
-var schema = __webpack_require__(8102);
+var schema = __webpack_require__(78102);
 // EXTERNAL MODULE: ./node_modules/langchain/dist/base_language/index.js + 1 modules
-var base_language = __webpack_require__(7396);
+var base_language = __webpack_require__(57396);
 // EXTERNAL MODULE: ./node_modules/langchain/dist/callbacks/manager.js + 8 modules
-var manager = __webpack_require__(4908);
+var manager = __webpack_require__(34908);
 ;// CONCATENATED MODULE: ./node_modules/langchain/dist/chat_models/base.js
 
 
@@ -672,7 +672,7 @@ class SimpleChatModel extends (/* unused pure expression or super */ null && (Ba
 }
 
 // EXTERNAL MODULE: ./node_modules/langchain/dist/base_language/count_tokens.js
-var count_tokens = __webpack_require__(8393);
+var count_tokens = __webpack_require__(98393);
 ;// CONCATENATED MODULE: ./node_modules/langchain/dist/chat_models/openai.js
 
 
@@ -1138,4 +1138,3 @@ class ChatOpenAI extends BaseChatModel {
 
 };
 ;
-//# sourceMappingURL=594.index.js.map

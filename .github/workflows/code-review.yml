@@ -11,7 +11,7 @@ jobs:
     if: ${{ contains( github.event.label.name, 'AutoReview') }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: ./
         env:
           NODE_OPTIONS: '--experimental-fetch'
@@ -20,4 +20,4 @@ jobs:
           openai_api_key: ${{ secrets.OPENAI_API_KEY }}
           model_temperature: 0
           model_name: 'gpt-4'
-          exclude_files: '*.js, *.json, *.md, *.yml, *.js.map'
+          exclude_files: '*.js, *.json, *.md, *.yml, *.js.map, .node-version'

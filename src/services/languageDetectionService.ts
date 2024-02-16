@@ -1,18 +1,24 @@
-// eslint-disable-next-line filenames/match-regex
-export class LanguageDetectionService {
-  detectLanguage = (filename: string): Language | undefined => {
-    const extension = this.getFileExtension(filename)
-    if (extension in extensionToLanguageMap) {
-      return extensionToLanguageMap[extension as LanguageKey]
-    } else {
-      return undefined
+import { Option, Context, Effect, Layer } from 'effect'
+
+const makeLanguageDetectionService = Effect.sync(() => {
+  return {
+    detectLanguage: (filename: string): Option.Option<Language> => {
+      const extension = getFileExtension(filename)
+      return Option.fromNullable(extensionToLanguageMap[extension as LanguageKey])
     }
   }
+})
 
-  private getFileExtension(filename: string): string {
-    const extension = filename.split('.').pop()
-    return extension ? extension : ''
-  }
+export class LanguageDetectionService extends Context.Tag('LanguageDetectionService')<
+  LanguageDetectionService,
+  Effect.Effect.Success<typeof makeLanguageDetectionService>
+>() {
+  static Live = Layer.effect(this, makeLanguageDetectionService)
+}
+
+const getFileExtension = (filename: string): string => {
+  const extension = filename.split('.').pop()
+  return extension ? extension : ''
 }
 
 const extensionToLanguageMap = {
