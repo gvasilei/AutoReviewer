@@ -5,15 +5,8 @@ import type { PullRequestEvent } from '@octokit/webhooks-definitions/schema'
 
 import { ChatOpenAI } from 'langchain/chat_models/openai'
 import { BaseChatModel } from 'langchain/dist/chat_models/base'
-import {
-  CodeReviewService,
-  CodeReviewServiceImpl
-} from './services/codeReviewService'
-import {
-  PullRequestService,
-  PullRequestServiceImpl,
-  octokitTag
-} from './services/pullRequestService'
+import { CodeReviewService, CodeReviewServiceImpl } from './services/codeReviewService'
+import { PullRequestService, PullRequestServiceImpl, octokitTag } from './services/pullRequestService'
 import { LanguageDetectionService } from './services/languageDetectionService'
 
 import { Effect, Layer, Match, pipe, Exit } from 'effect'
@@ -61,19 +54,12 @@ export const run = async (): Promise<void> => {
         Effect.flatMap(filePattens =>
           PullRequestService.pipe(
             Effect.flatMap(pullRequestService =>
-              pullRequestService.getFilesForReview(
-                owner,
-                repo,
-                context.payload.number,
-                filePattens
-              )
+              pullRequestService.getFilesForReview(owner, repo, context.payload.number, filePattens)
             ),
             Effect.flatMap(files =>
               Effect.forEach(files, file =>
                 CodeReviewService.pipe(
-                  Effect.flatMap(codeReviewService =>
-                    codeReviewService.codeReviewFor(file)
-                  ),
+                  Effect.flatMap(codeReviewService => codeReviewService.codeReviewFor(file)),
                   Effect.flatMap(res =>
                     PullRequestService.pipe(
                       Effect.flatMap(pullRequestService =>
@@ -101,9 +87,7 @@ export const run = async (): Promise<void> => {
 
     Match.orElse(eventName =>
       Effect.sync(() => {
-        core.setFailed(
-          `This action only works on pull_request events. Got: ${eventName}`
-        )
+        core.setFailed(`This action only works on pull_request events. Got: ${eventName}`)
       })
     )
   )
@@ -119,18 +103,14 @@ export const run = async (): Promise<void> => {
 const initializeServices = (model: BaseChatModel, githubToken: string) => {
   const CodeReviewServiceLive = Layer.effect(
     CodeReviewService,
-    Effect.map(LanguageDetectionService, _ =>
-      CodeReviewService.of(new CodeReviewServiceImpl(model))
-    )
+    Effect.map(LanguageDetectionService, _ => CodeReviewService.of(new CodeReviewServiceImpl(model)))
   )
 
   const octokitLive = Layer.succeed(octokitTag, github.getOctokit(githubToken))
 
   const PullRequestServiceLive = Layer.effect(
     PullRequestService,
-    Effect.map(octokitTag, _ =>
-      PullRequestService.of(new PullRequestServiceImpl())
-    )
+    Effect.map(octokitTag, _ => PullRequestService.of(new PullRequestServiceImpl()))
   )
 
   const mainLive = CodeReviewServiceLive.pipe(
