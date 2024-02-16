@@ -60,7 +60,7 @@ export class PullRequestServiceImpl {
       Effect.tap(pullRequestFiles =>
         Effect.sync(() =>
           core.info(
-            `Original files for review: ${pullRequestFiles.data.map(
+            `Original files for review ${pullRequestFiles.data.length}: ${pullRequestFiles.data.map(
               _ => _.filename
             )}`
           )
@@ -84,7 +84,7 @@ export class PullRequestServiceImpl {
       Effect.tap(filteredFiles =>
         Effect.sync(() =>
           core.info(
-            `Filtered files for review: ${filteredFiles.map(_ => _.filename)}`
+            `Filtered files for review ${filteredFiles.length}: ${filteredFiles.map(_ => _.filename)}`
           )
         )
       )
