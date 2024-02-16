@@ -39,7 +39,6 @@ export const run = async (): Promise<void> => {
             core.info(
               `repoName: ${repo} pull_number: ${context.payload.number} owner: ${owner} sha: ${pullRequestPayload.pull_request.head.sha}`
             )
-            core.info(JSON.stringify(pullRequestPayload))
           })
         ),
         Effect.map(() =>
@@ -70,7 +69,7 @@ export const run = async (): Promise<void> => {
                           commit_id: context.payload.pull_request?.head.sha,
                           path: file.filename,
                           body: res.text,
-                          position: file.patch?.split('\n').length ?? 1 - 1
+                          subject_type: 'file'
                         })
                       )
                     )
