@@ -1,9 +1,5 @@
 # 🤖 Automated Code Reviews powered by ChatGPT 🤖
 
-<p align="center">
-  <a href="https://github.com/actions/typescript-action/actions"><img alt="typescript-action status" src="https://github.com/actions/typescript-action/workflows/build-test/badge.svg"></a>
-</p>
-
 A GitHub action uses OpenAI's GPT-4 to perform automated code reviews. When you create a PR, our action will automatically review the code and suggest changes, just like a human code reviewer would.
 
 ## 🚀 How to use it
@@ -29,7 +25,9 @@ jobs:
           openai_api_key: ${{ secrets.OPENAI_API_KEY }}
           exclude_files: '*.json, *.md, *.yml' # optionally exclude files based on a wildcard expression. 
 ```
+
 - Or when a label is added
+
 ```YAML
 name: 'code-review'
 on: # rebuild any PRs and main branch changes
@@ -63,6 +61,7 @@ jobs:
 ## 🎉 Benefits
 
 Using our GitHub action has many benefits, such as:
+
 - Faster code reviews
 - More consistent feedback
 - Increased productivity
@@ -72,6 +71,7 @@ Using our GitHub action has many benefits, such as:
 
 - This GitHub Action is still in early development.
 - While the action supports both `gpt-4` and `gpt-3.5-turbo`, `gpt-4` gives much better suggestions.
+
 ## 🙌 Contributing
 
 If you have any ideas or improvements to our GitHub action, feel free to submit a PR. We welcome all contributions!
