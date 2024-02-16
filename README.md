@@ -1,8 +1,8 @@
+# 🤖 Automated Code Reviews powered by ChatGPT 🤖
+
 <p align="center">
   <a href="https://github.com/actions/typescript-action/actions"><img alt="typescript-action status" src="https://github.com/actions/typescript-action/workflows/build-test/badge.svg"></a>
 </p>
-
-# 🤖 Automated Code Reviews powered by ChatGPT 🤖
 
 A GitHub action uses OpenAI's GPT-4 to perform automated code reviews. When you create a PR, our action will automatically review the code and suggest changes, just like a human code reviewer would.
 

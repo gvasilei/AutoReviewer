@@ -1,4 +1,4 @@
-import * as github from '@actions/github'
+//import * as github from '@actions/github'
 //import { PullRequestService } from '../src/services/pullRequestService'
 //import minimatch from 'minimatch'
 

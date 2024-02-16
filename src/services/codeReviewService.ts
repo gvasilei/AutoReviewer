@@ -71,9 +71,7 @@ export class CodeReviewServiceImpl {
         languageDetectionService.detectLanguage(file.filename)
       ),
       Effect.flatMap(lang =>
-        Effect.tryPromise(() =>
-          this.chain.call({ lang, diff: file.patch })
-        )
+        Effect.tryPromise(() => this.chain.call({ lang, diff: file.patch }))
       )
     )
 
@@ -97,7 +95,7 @@ export class CodeReviewServiceImpl {
           fd.chunks.map(chunk =>
             Effect.tryPromise(() =>
               this.chain.call({
-                lang: lang,
+                lang,
                 diff: chunk.content
               })
             )
