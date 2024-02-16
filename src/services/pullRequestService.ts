@@ -38,7 +38,7 @@ export class PullRequestServiceImpl {
   ): Effect.Effect<PullRequestFile[], UnknownException, InstanceType<typeof GitHub>> => {
     const program = octokitTag.pipe(
       Effect.flatMap(octokit =>
-        Effect.tryPromise(() => octokit.rest.pulls.listFiles({ owner, repo, pull_number: pullNumber }))
+        Effect.tryPromise(() => octokit.rest.pulls.listFiles({ owner, repo, pull_number: pullNumber, per_page: 100 }))
       ),
       Effect.tap(pullRequestFiles =>
         Effect.sync(() =>
