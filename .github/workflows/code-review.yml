@@ -20,4 +20,4 @@ jobs:
           openai_api_key: ${{ secrets.OPENAI_API_KEY }}
           model_temperature: 0
           model_name: 'gpt-4'
-          exclude_files: '*.js, *.json, *.md, *.yml, *.js.map'
+          exclude_files: '*.js, *.json, *.md, *.yml, *.js.map, node-version'

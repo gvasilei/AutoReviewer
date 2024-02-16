@@ -51,7 +51,6 @@ export class CodeReviewServiceImpl {
   ): Effect.Effect<ChainValues, NoSuchElementException | UnknownException, LanguageDetectionService> =>
     LanguageDetectionService.pipe(
       Effect.flatMap(languageDetectionService => languageDetectionService.detectLanguage(file.filename)),
-      Effect.tap(l => Effect.sync(() => core.info(`language: ${l}, patch: ${file.patch}`))),
       Effect.flatMap(lang => Effect.tryPromise(() => this.chain.call({ lang, diff: file.patch })))
     )
 
