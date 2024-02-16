@@ -1,4 +1,3 @@
-/* eslint-disable filenames/match-regex */
 import {
   ChatPromptTemplate,
   HumanMessagePromptTemplate,

@@ -81,6 +81,6 @@ rules:
     '@typescript-eslint/unbound-method': 'error',
     'no-redeclare': 'off',
     'github/array-foreach': 'off',
-    "filenames/match-regex": [2, "^[a-z]+([A-Z][a-z0-9]+)*$", true]
+    "filenames/match-regex": [1, "^[a-z]+([A-Z][a-z0-9]+)*$", true]
 
   }

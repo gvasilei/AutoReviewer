@@ -1,4 +1,3 @@
-/* eslint-disable filenames/match-regex */
 import { Option, Context, Effect, Layer } from 'effect'
 
 const makeLanguageDetectionService = Effect.sync(() => {
