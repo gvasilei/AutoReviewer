@@ -51,9 +51,9 @@ export class CodeReviewServiceImpl {
   ): Effect.Effect<ChainValues, NoSuchElementException | UnknownException, LanguageDetectionService> =>
     LanguageDetectionService.pipe(
       Effect.flatMap(languageDetectionService => languageDetectionService.detectLanguage(file.filename)),
-      Effect.flatMap(lang => 
+      Effect.flatMap(lang =>
         Effect.retry(
-          Effect.tryPromise(() => this.chain.call({ lang, diff: file.patch })), 
+          Effect.tryPromise(() => this.chain.call({ lang, diff: file.patch })),
           exponentialBackoffWithJitter(3)
         )
       )
@@ -72,7 +72,7 @@ export class CodeReviewServiceImpl {
         Effect.all(
           fd.chunks.map(chunk =>
             Effect.retry(
-              Effect.tryPromise(() => this.chain.call({ lang, diff: chunk.content })), 
+              Effect.tryPromise(() => this.chain.call({ lang, diff: chunk.content })),
               exponentialBackoffWithJitter(3)
             )
           )
@@ -81,5 +81,3 @@ export class CodeReviewServiceImpl {
     )
   }
 }
-
-
