@@ -6,7 +6,7 @@ import { PullRequestFile } from './pullRequestService'
 import parseDiff from 'parse-diff'
 import { LanguageDetectionService } from './languageDetectionService'
 import { exponentialBackoffWithJitter } from '../httpUtils'
-import { Effect, Context, Schedule } from 'effect'
+import { Effect, Context } from 'effect'
 import { NoSuchElementException, UnknownException } from 'effect/Cause'
 
 export interface CodeReviewService {
@@ -71,8 +71,9 @@ export class CodeReviewServiceImpl {
       Effect.flatMap(([lang, fd]) =>
         Effect.all(
           fd.chunks.map(chunk =>
-            Effect.tryPromise(() =>
-              this.chain.call({ lang, diff: chunk.content })
+            Effect.retry(
+              Effect.tryPromise(() => this.chain.call({ lang, diff: chunk.content })), 
+              exponentialBackoffWithJitter(3)
             )
           )
         )
