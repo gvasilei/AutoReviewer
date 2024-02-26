@@ -5,6 +5,7 @@ import type { ChainValues } from 'langchain/dist/schema'
 import { PullRequestFile } from './pullRequestService'
 import parseDiff from 'parse-diff'
 import { LanguageDetectionService } from './languageDetectionService'
+import { exponentialBackoffWithJitter } from '../httpUtils'
 import { Effect, Context } from 'effect'
 import { NoSuchElementException, UnknownException } from 'effect/Cause'
 
@@ -50,7 +51,12 @@ export class CodeReviewServiceImpl {
   ): Effect.Effect<ChainValues, NoSuchElementException | UnknownException, LanguageDetectionService> =>
     LanguageDetectionService.pipe(
       Effect.flatMap(languageDetectionService => languageDetectionService.detectLanguage(file.filename)),
-      Effect.flatMap(lang => Effect.tryPromise(() => this.chain.call({ lang, diff: file.patch })))
+      Effect.flatMap(lang =>
+        Effect.retry(
+          Effect.tryPromise(() => this.chain.call({ lang, diff: file.patch })),
+          exponentialBackoffWithJitter(3)
+        )
+      )
     )
 
   codeReviewForChunks(
@@ -63,16 +69,7 @@ export class CodeReviewServiceImpl {
 
     return Effect.all([programmingLanguage, fileDiff]).pipe(
       Effect.flatMap(([lang, fd]) =>
-        Effect.all(
-          fd.chunks.map(chunk =>
-            Effect.tryPromise(() =>
-              this.chain.call({
-                lang,
-                diff: chunk.content
-              })
-            )
-          )
-        )
+        Effect.all(fd.chunks.map(chunk => Effect.tryPromise(() => this.chain.call({ lang, diff: chunk.content }))))
       )
     )
   }

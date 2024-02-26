@@ -3,6 +3,7 @@ import type { RestEndpointMethodTypes } from '@octokit/plugin-rest-endpoint-meth
 import { minimatch } from 'minimatch'
 import * as core from '@actions/core'
 import { ArrElement } from '../typeUtils'
+import { exponentialBackoffWithJitter } from '../httpUtils'
 import { Effect, Context } from 'effect'
 import { UnknownException } from 'effect/Cause'
 
@@ -38,7 +39,12 @@ export class PullRequestServiceImpl {
   ): Effect.Effect<PullRequestFile[], UnknownException, InstanceType<typeof GitHub>> => {
     const program = octokitTag.pipe(
       Effect.flatMap(octokit =>
-        Effect.tryPromise(() => octokit.rest.pulls.listFiles({ owner, repo, pull_number: pullNumber, per_page: 100 }))
+        Effect.retry(
+          Effect.tryPromise(() =>
+            octokit.rest.pulls.listFiles({ owner, repo, pull_number: pullNumber, per_page: 100 })
+          ),
+          exponentialBackoffWithJitter(3)
+        )
       ),
       Effect.tap(pullRequestFiles =>
         Effect.sync(() =>
@@ -69,16 +75,24 @@ export class PullRequestServiceImpl {
 
   createReviewComment = (
     requestOptions: CreateReviewCommentRequest
-  ): Effect.Effect<void, Error, InstanceType<typeof GitHub>> => {
-    return octokitTag.pipe(
+  ): Effect.Effect<void, Error, InstanceType<typeof GitHub>> =>
+    octokitTag.pipe(
       Effect.tap(_ => core.debug(`Creating review comment: ${JSON.stringify(requestOptions)}`)),
-      Effect.flatMap(octokit => Effect.tryPromise(() => octokit.rest.pulls.createReviewComment(requestOptions)))
+      Effect.flatMap(octokit =>
+        Effect.retry(
+          Effect.tryPromise(() => octokit.rest.pulls.createReviewComment(requestOptions)),
+          exponentialBackoffWithJitter(3)
+        )
+      )
     )
-  }
 
-  createReview = (requestOptions: CreateReviewRequest): Effect.Effect<void, Error, InstanceType<typeof GitHub>> => {
-    return octokitTag.pipe(
-      Effect.flatMap(octokit => Effect.tryPromise(() => octokit.rest.pulls.createReview(requestOptions)))
+  createReview = (requestOptions: CreateReviewRequest): Effect.Effect<void, Error, InstanceType<typeof GitHub>> =>
+    octokitTag.pipe(
+      Effect.flatMap(octokit =>
+        Effect.retry(
+          Effect.tryPromise(() => octokit.rest.pulls.createReview(requestOptions)),
+          exponentialBackoffWithJitter(3)
+        )
+      )
     )
-  }
 }
