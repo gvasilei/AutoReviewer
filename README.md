@@ -20,7 +20,7 @@ jobs:
       pull-requests: write
     steps:
       - uses: actions/checkout@v3
-      - uses: gvasilei/AutoReviewer@0.5
+      - uses: gvasilei/AutoReviewer@0.5.1
         env:
           NODE_OPTIONS: '--experimental-fetch'
         with:
@@ -45,7 +45,7 @@ jobs:
       pull-requests: write
     steps:
       - uses: actions/checkout@v3
-      - uses: gvasilei/AutoReviewer@0.4.1
+      - uses: gvasilei/AutoReviewer@0.5.1
         env:
           NODE_OPTIONS: '--experimental-fetch'
         with:
