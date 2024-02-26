@@ -69,14 +69,7 @@ export class CodeReviewServiceImpl {
 
     return Effect.all([programmingLanguage, fileDiff]).pipe(
       Effect.flatMap(([lang, fd]) =>
-        Effect.all(
-          fd.chunks.map(chunk =>
-            Effect.retry(
-              Effect.tryPromise(() => this.chain.call({ lang, diff: chunk.content })),
-              exponentialBackoffWithJitter(3)
-            )
-          )
-        )
+        Effect.all(fd.chunks.map(chunk => Effect.tryPromise(() => this.chain.call({ lang, diff: chunk.content }))))
       )
     )
   }
