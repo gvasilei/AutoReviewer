@@ -103,14 +103,14 @@ export const run = async (): Promise<void> => {
 const initializeServices = (model: BaseChatModel, githubToken: string) => {
   const CodeReviewServiceLive = Layer.effect(
     CodeReviewService,
-    Effect.map(LanguageDetectionService, _ => CodeReviewService.of(new CodeReviewServiceImpl(model)))
+    Effect.map(LanguageDetectionService, () => CodeReviewService.of(new CodeReviewServiceImpl(model)))
   )
 
   const octokitLive = Layer.succeed(octokitTag, github.getOctokit(githubToken))
 
   const PullRequestServiceLive = Layer.effect(
     PullRequestService,
-    Effect.map(octokitTag, _ => PullRequestService.of(new PullRequestServiceImpl()))
+    Effect.map(octokitTag, () => PullRequestService.of(new PullRequestServiceImpl()))
   )
 
   const mainLive = CodeReviewServiceLive.pipe(

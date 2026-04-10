@@ -11,7 +11,8 @@ ignorePatterns:
   - '!.*'
   - '**/node_modules/.*'
   - '**/dist/.*'
-  - '**/coverage/.*'
+  - 'coverage/**'
+  - '**/coverage/**'
   - '*.json'
 
 parser: '@typescript-eslint/parser'
