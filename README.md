@@ -20,7 +20,7 @@ jobs:
       pull-requests: write
     steps:
       - uses: actions/checkout@v3
-      - uses: gvasilei/AutoReviewer@0.5.1
+      - uses: gvasilei/AutoReviewer@0.6
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           openai_api_key: ${{ secrets.OPENAI_API_KEY }}
