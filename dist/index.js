@@ -206399,15 +206399,127 @@ exports.formatFailureCause = formatFailureCause;
 /***/ }),
 
 /***/ 26934:
-/***/ ((__unused_webpack_module, exports) => {
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
 
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.loadGitHubRuntime = void 0;
-// Preserve native import() so CommonJS-oriented builds can load the ESM-only package at runtime.
-const importGitHubRuntime = new Function('return import("@actions/github")');
-const loadGitHubRuntime = () => importGitHubRuntime();
+const promises_1 = __nccwpck_require__(51455);
+const loadEventName = () => {
+    const eventName = process.env.GITHUB_EVENT_NAME;
+    if (!eventName) {
+        throw new Error('GITHUB_EVENT_NAME is not set');
+    }
+    return eventName;
+};
+const loadRepository = () => {
+    const repository = process.env.GITHUB_REPOSITORY;
+    if (!repository) {
+        throw new Error('GITHUB_REPOSITORY is not set');
+    }
+    const [owner, repo, ...extraSegments] = repository.split('/');
+    if (!owner || !repo || extraSegments.length > 0) {
+        throw new Error(`Invalid GITHUB_REPOSITORY value: ${repository}`);
+    }
+    return { owner, repo };
+};
+const loadPayload = async () => {
+    const eventPath = process.env.GITHUB_EVENT_PATH;
+    if (!eventPath) {
+        throw new Error('GITHUB_EVENT_PATH is not set');
+    }
+    const payload = await (0, promises_1.readFile)(eventPath, 'utf8');
+    return JSON.parse(payload);
+};
+const GITHUB_API_BASE_URL = 'https://api.github.com';
+const GITHUB_API_VERSION = '2022-11-28';
+const createHeaders = (token) => ({
+    Accept: 'application/vnd.github+json',
+    Authorization: `Bearer ${token}`,
+    'User-Agent': 'AutoReviewer',
+    'X-GitHub-Api-Version': GITHUB_API_VERSION
+});
+const buildApiUrl = (path, searchParams) => {
+    const url = new URL(path, GITHUB_API_BASE_URL);
+    if (searchParams) {
+        url.search = searchParams.toString();
+    }
+    return url.toString();
+};
+const readErrorMessage = async (response) => {
+    const fallbackMessage = `${response.status} ${response.statusText}`.trim();
+    try {
+        const payload = (await response.json());
+        return payload.message ? `${fallbackMessage}: ${payload.message}` : fallbackMessage;
+    }
+    catch {
+        return fallbackMessage;
+    }
+};
+const buildResponseHeaders = (headers) => Object.fromEntries(headers.entries());
+const requestGitHub = async (token, url, init) => {
+    const response = await fetch(url, {
+        ...init,
+        headers: {
+            ...createHeaders(token),
+            ...init?.headers
+        }
+    });
+    if (!response.ok) {
+        throw new Error(await readErrorMessage(response));
+    }
+    return {
+        status: response.status,
+        headers: buildResponseHeaders(response.headers),
+        url: response.url,
+        data: (await response.json())
+    };
+};
+const createOctokit = (token) => ({
+    rest: {
+        pulls: {
+            listFiles: async (requestOptions) => {
+                const searchParams = new URLSearchParams();
+                if (requestOptions.per_page !== undefined) {
+                    searchParams.set('per_page', String(requestOptions.per_page));
+                }
+                const response = await requestGitHub(token, buildApiUrl(`/repos/${requestOptions.owner}/${requestOptions.repo}/pulls/${requestOptions.pull_number}/files`, searchParams));
+                return response;
+            },
+            createReviewComment: async (requestOptions) => {
+                const { owner, repo, pull_number, ...body } = requestOptions;
+                const response = await requestGitHub(token, buildApiUrl(`/repos/${owner}/${repo}/pulls/${pull_number}/comments`), {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(body)
+                });
+                return response;
+            },
+            createReview: async (requestOptions) => {
+                const { owner, repo, pull_number, ...body } = requestOptions;
+                const response = await requestGitHub(token, buildApiUrl(`/repos/${owner}/${repo}/pulls/${pull_number}/reviews`), {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(body)
+                });
+                return response;
+            }
+        }
+    }
+});
+const loadGitHubRuntime = async () => ({
+    context: {
+        eventName: loadEventName(),
+        payload: await loadPayload(),
+        repo: loadRepository()
+    },
+    getOctokit: createOctokit
+});
 exports.loadGitHubRuntime = loadGitHubRuntime;
 
 

@@ -1,6 +1,5 @@
 import { config } from 'dotenv'
 import * as core from '@actions/core'
-import type { PullRequestEvent } from '@octokit/webhooks-types'
 
 import * as OpenAiClient from '@effect/ai-openai/OpenAiClient'
 import * as OpenAiLanguageModel from '@effect/ai-openai/OpenAiLanguageModel'
@@ -45,7 +44,7 @@ export const run = async (): Promise<void> => {
   const program = Match.value(context.eventName).pipe(
     Match.when('pull_request', () => {
       const excludeFilePatterns = pipe(
-        Effect.sync(() => github.context.payload as PullRequestEvent),
+        Effect.sync(() => github.context.payload),
         Effect.tap(pullRequestPayload =>
           Effect.sync(() => {
             core.info(
