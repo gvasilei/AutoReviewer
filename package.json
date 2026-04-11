@@ -62,7 +62,7 @@
     ]
   },
   "dependencies": {
-    "@actions/core": "^2.0.3",
+    "@actions/core": "^3.0.0",
     "@effect/ai": "0.35.0",
     "@effect/ai-openai": "0.39.0",
     "@effect/experimental": "0.60.0",
