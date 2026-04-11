@@ -121,13 +121,7 @@ export const run = async (): Promise<void> => {
   }
 }
 
-const initializeServices = ({
-  actionConfig,
-  octokit,
-}: {
-  actionConfig: ActionConfigData
-  octokit: OctokitClient
-}) => {
+const initializeServices = ({ actionConfig, octokit }: { actionConfig: ActionConfigData; octokit: OctokitClient }) => {
   const octokitLive = OctokitService.layer(octokit)
   const actionConfigLive = Layer.succeed(ActionConfig, actionConfig)
 
