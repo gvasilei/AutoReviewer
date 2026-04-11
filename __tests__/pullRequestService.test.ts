@@ -35,11 +35,7 @@ describe('PullRequestService', () => {
     const files = await Effect.gen(function* () {
       const pullRequestService = yield* PullRequestService
       return yield* pullRequestService.getFilesForReview('test-owner', 'test-repo', 1, [])
-    }).pipe(
-      Effect.provide(PullRequestService.layer),
-      Effect.provide(OctokitService.layer(octokit)),
-      Effect.runPromise
-    )
+    }).pipe(Effect.provide(PullRequestService.layer), Effect.provide(OctokitService.layer(octokit)), Effect.runPromise)
 
     expect(listFiles).toHaveBeenCalledWith({
       owner: 'test-owner',
@@ -75,54 +71,42 @@ describe('PullRequestService', () => {
 
     const files = await Effect.gen(function* () {
       const pullRequestService = yield* PullRequestService
-      return yield* pullRequestService.getFilesForReview('test-owner', 'test-repo', 1, [
-        '*.ts',
-        '*.js',
-        '*.js.map'
-      ])
-    }).pipe(
-      Effect.provide(PullRequestService.layer),
-      Effect.provide(OctokitService.layer(octokit)),
-      Effect.runPromise
-    )
+      return yield* pullRequestService.getFilesForReview('test-owner', 'test-repo', 1, ['*.ts', '*.js', '*.js.map'])
+    }).pipe(Effect.provide(PullRequestService.layer), Effect.provide(OctokitService.layer(octokit)), Effect.runPromise)
 
     expect(files).toEqual([{ filename: 'baz.md', status: 'changed' }])
   })
 
-  it(
-    'maps octokit failures to GitHubApiError',
-    async () => {
-      const listFiles = jest.fn().mockRejectedValue(new Error('GitHub unavailable'))
+  it('maps octokit failures to GitHubApiError', async () => {
+    const listFiles = jest.fn().mockRejectedValue(new Error('GitHub unavailable'))
 
-      const octokit = {
-        rest: {
-          pulls: {
-            listFiles,
-            createReviewComment: jest.fn(),
-            createReview: jest.fn()
-          }
+    const octokit = {
+      rest: {
+        pulls: {
+          listFiles,
+          createReviewComment: jest.fn(),
+          createReview: jest.fn()
         }
-      } as unknown as OctokitClient
-
-      const result = await Effect.gen(function* () {
-        const pullRequestService = yield* PullRequestService
-        return yield* pullRequestService.getFilesForReview('test-owner', 'test-repo', 1, [])
-      }).pipe(
-        Effect.provide(PullRequestService.layer),
-        Effect.provide(OctokitService.layer(octokit)),
-        Effect.either,
-        Effect.runPromise
-      )
-
-      expect(Either.isLeft(result)).toBe(true)
-
-      if (Either.isLeft(result)) {
-        expect(result.left).toBeInstanceOf(GitHubApiError)
-        expect(result.left.operation).toBe('pulls.listFiles')
       }
+    } as unknown as OctokitClient
 
-      expect(listFiles).toHaveBeenCalledTimes(4)
-    },
-    15000
-  )
+    const result = await Effect.gen(function* () {
+      const pullRequestService = yield* PullRequestService
+      return yield* pullRequestService.getFilesForReview('test-owner', 'test-repo', 1, [])
+    }).pipe(
+      Effect.provide(PullRequestService.layer),
+      Effect.provide(OctokitService.layer(octokit)),
+      Effect.either,
+      Effect.runPromise
+    )
+
+    expect(Either.isLeft(result)).toBe(true)
+
+    if (Either.isLeft(result)) {
+      expect(result.left).toBeInstanceOf(GitHubApiError)
+      expect(result.left.operation).toBe('pulls.listFiles')
+    }
+
+    expect(listFiles).toHaveBeenCalledTimes(4)
+  }, 15000)
 })

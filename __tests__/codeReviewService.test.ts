@@ -9,14 +9,11 @@ describe('CodeReviewService', () => {
   it('uses the language model prompt and maps the response text', async () => {
     const generateText = jest.fn(() => Effect.succeed({ text: 'Looks good overall.' } as any))
 
-    const languageModelLive = Layer.succeed(
-      LanguageModel.LanguageModel,
-      {
-        generateText: generateText as LanguageModel.Service['generateText'],
-        generateObject: jest.fn() as LanguageModel.Service['generateObject'],
-        streamText: jest.fn() as LanguageModel.Service['streamText']
-      } satisfies LanguageModel.Service
-    )
+    const languageModelLive = Layer.succeed(LanguageModel.LanguageModel, {
+      generateText: generateText as LanguageModel.Service['generateText'],
+      generateObject: jest.fn() as LanguageModel.Service['generateObject'],
+      streamText: jest.fn() as LanguageModel.Service['streamText']
+    } satisfies LanguageModel.Service)
 
     const file = {
       filename: 'src/example.ts',
@@ -53,14 +50,11 @@ describe('CodeReviewService', () => {
   it('fails with UnsupportedLanguageError for unknown file extensions', async () => {
     const generateText = jest.fn(() => Effect.succeed({ text: 'Should not run' } as any))
 
-    const languageModelLive = Layer.succeed(
-      LanguageModel.LanguageModel,
-      {
-        generateText: generateText as LanguageModel.Service['generateText'],
-        generateObject: jest.fn() as LanguageModel.Service['generateObject'],
-        streamText: jest.fn() as LanguageModel.Service['streamText']
-      } satisfies LanguageModel.Service
-    )
+    const languageModelLive = Layer.succeed(LanguageModel.LanguageModel, {
+      generateText: generateText as LanguageModel.Service['generateText'],
+      generateObject: jest.fn() as LanguageModel.Service['generateObject'],
+      streamText: jest.fn() as LanguageModel.Service['streamText']
+    } satisfies LanguageModel.Service)
 
     const file = {
       filename: 'src/example.unknown',
@@ -88,19 +82,14 @@ describe('CodeReviewService', () => {
     expect(generateText).not.toHaveBeenCalled()
   })
 
-  it(
-    'maps language model failures to ReviewGenerationError',
-    async () => {
+  it('maps language model failures to ReviewGenerationError', async () => {
     const generateText = jest.fn(() => Effect.fail(new Error('model unavailable') as any))
 
-    const languageModelLive = Layer.succeed(
-      LanguageModel.LanguageModel,
-      {
-        generateText: generateText as LanguageModel.Service['generateText'],
-        generateObject: jest.fn() as LanguageModel.Service['generateObject'],
-        streamText: jest.fn() as LanguageModel.Service['streamText']
-      } satisfies LanguageModel.Service
-    )
+    const languageModelLive = Layer.succeed(LanguageModel.LanguageModel, {
+      generateText: generateText as LanguageModel.Service['generateText'],
+      generateObject: jest.fn() as LanguageModel.Service['generateObject'],
+      streamText: jest.fn() as LanguageModel.Service['streamText']
+    } satisfies LanguageModel.Service)
 
     const file = {
       filename: 'src/example.ts',
@@ -118,13 +107,11 @@ describe('CodeReviewService', () => {
       Effect.runPromise
     )
 
-      expect(Either.isLeft(result)).toBe(true)
+    expect(Either.isLeft(result)).toBe(true)
 
-      if (Either.isLeft(result)) {
-        expect(result.left).toBeInstanceOf(ReviewGenerationError)
-        expect(result.left.filename).toBe(file.filename)
-      }
-    },
-    15000
-  )
+    if (Either.isLeft(result)) {
+      expect(result.left).toBeInstanceOf(ReviewGenerationError)
+      expect(result.left.filename).toBe(file.filename)
+    }
+  }, 15000)
 })

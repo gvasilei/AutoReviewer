@@ -5,10 +5,7 @@ import { ActionConfig } from '../src/actionConfig'
 const loadActionConfig = (entries: Array<[string, string]>) =>
   Effect.gen(function* () {
     return yield* ActionConfig
-  }).pipe(
-    Effect.provide(ActionConfig.layer),
-    Effect.withConfigProvider(ConfigProvider.fromMap(new Map(entries)))
-  )
+  }).pipe(Effect.provide(ActionConfig.layer), Effect.withConfigProvider(ConfigProvider.fromMap(new Map(entries))))
 
 describe('ActionConfig', () => {
   it('parses inputs and trims exclude file patterns', async () => {
