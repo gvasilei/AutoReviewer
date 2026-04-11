@@ -1,4 +1,5 @@
 <!-- effect-solutions:start -->
+
 ## Effect Solutions Usage
 
 The Effect Solutions CLI provides curated best practices and patterns for Effect TypeScript. Before working on Effect code, check if there's a relevant topic that covers your use case.
