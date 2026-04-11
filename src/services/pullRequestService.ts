@@ -1,7 +1,7 @@
-import { GitHub } from '@actions/github/lib/utils'
-import type { RestEndpointMethodTypes } from '@octokit/plugin-rest-endpoint-methods/dist-types/generated/parameters-and-response-types'
+import type { RestEndpointMethodTypes } from '@octokit/plugin-rest-endpoint-methods' with { "resolution-mode": "import" }
 import { minimatch } from 'minimatch'
 import * as core from '@actions/core'
+import type { OctokitClient } from '../githubRuntime'
 import { ArrElement } from '../typeUtils'
 import { exponentialBackoffWithJitter } from '../httpUtils'
 import { Effect, Context } from 'effect'
@@ -20,14 +20,14 @@ export interface PullRequestService {
     repo: string,
     pullNumber: number,
     excludeFilePatterns: string[]
-  ) => Effect.Effect<PullRequestFile[], UnknownException, InstanceType<typeof GitHub>>
+  ) => Effect.Effect<PullRequestFile[], UnknownException, OctokitClient>
   createReviewComment: (
     requestOptions: CreateReviewCommentRequest
-  ) => Effect.Effect<void, unknown, InstanceType<typeof GitHub>>
-  createReview: (requestOptions: CreateReviewRequest) => Effect.Effect<void, unknown, InstanceType<typeof GitHub>>
+  ) => Effect.Effect<void, unknown, OctokitClient>
+  createReview: (requestOptions: CreateReviewRequest) => Effect.Effect<void, unknown, OctokitClient>
 }
 
-export const octokitTag = Context.GenericTag<InstanceType<typeof GitHub>>('octokit')
+export const octokitTag = Context.GenericTag<OctokitClient>('octokit')
 
 export const PullRequestService = Context.GenericTag<PullRequestService>('PullRequestService')
 export class PullRequestServiceImpl {
@@ -36,7 +36,7 @@ export class PullRequestServiceImpl {
     repo: string,
     pullNumber: number,
     excludeFilePatterns: string[]
-  ): Effect.Effect<PullRequestFile[], UnknownException, InstanceType<typeof GitHub>> => {
+  ): Effect.Effect<PullRequestFile[], UnknownException, OctokitClient> => {
     const program = octokitTag.pipe(
       Effect.flatMap(octokit =>
         Effect.retry(
@@ -75,7 +75,7 @@ export class PullRequestServiceImpl {
 
   createReviewComment = (
     requestOptions: CreateReviewCommentRequest
-  ): Effect.Effect<void, Error, InstanceType<typeof GitHub>> =>
+  ): Effect.Effect<void, Error, OctokitClient> =>
     octokitTag.pipe(
       Effect.tap(() => core.debug(`Creating review comment: ${JSON.stringify(requestOptions)}`)),
       Effect.flatMap(octokit =>
@@ -86,7 +86,7 @@ export class PullRequestServiceImpl {
       )
     )
 
-  createReview = (requestOptions: CreateReviewRequest): Effect.Effect<void, Error, InstanceType<typeof GitHub>> =>
+  createReview = (requestOptions: CreateReviewRequest): Effect.Effect<void, Error, OctokitClient> =>
     octokitTag.pipe(
       Effect.flatMap(octokit =>
         Effect.retry(

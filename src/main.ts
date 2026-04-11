@@ -1,11 +1,12 @@
 import { config } from 'dotenv'
 import * as core from '@actions/core'
-import * as github from '@actions/github'
 import type { PullRequestEvent } from '@octokit/webhooks-definitions/schema'
 
 import * as OpenAiClient from '@effect/ai-openai/OpenAiClient'
 import * as OpenAiLanguageModel from '@effect/ai-openai/OpenAiLanguageModel'
 import * as NodeHttpClient from '@effect/platform-node/NodeHttpClient'
+import type { OctokitClient } from './githubRuntime'
+import { loadGitHubRuntime } from './githubRuntime'
 import { CodeReviewService, CodeReviewServiceImpl } from './services/codeReviewService'
 import { PullRequestService, PullRequestServiceImpl, octokitTag } from './services/pullRequestService'
 import { LanguageDetectionService } from './services/languageDetectionService'
@@ -19,12 +20,13 @@ export const run = async (): Promise<void> => {
   const githubToken = core.getInput('github_token')
   const modelName = core.getInput('model_name')
   const temperature = Number(core.getInput('model_temperature'))
+  const github = await loadGitHubRuntime()
 
   const context = github.context
   const { owner, repo } = context.repo
 
   const MainLive = initializeServices({
-    githubToken,
+    octokit: github.getOctokit(githubToken),
     modelName,
     openAIApiKey,
     temperature
@@ -101,12 +103,12 @@ export const run = async (): Promise<void> => {
 }
 
 const initializeServices = ({
-  githubToken,
+  octokit,
   modelName,
   openAIApiKey,
   temperature
 }: {
-  githubToken: string
+  octokit: OctokitClient
   modelName: string
   openAIApiKey: string
   temperature: number
@@ -116,7 +118,7 @@ const initializeServices = ({
     CodeReviewService.of(new CodeReviewServiceImpl())
   )
 
-  const octokitLive = Layer.succeed(octokitTag, github.getOctokit(githubToken))
+  const octokitLive = Layer.succeed(octokitTag, octokit)
 
   const PullRequestServiceLive = Layer.succeed(
     PullRequestService,
