@@ -206514,7 +206514,7 @@ const run = async () => {
     const program = effect_1.Match.value(context.eventName).pipe(effect_1.Match.when('pull_request', () => {
         const excludeFilePatterns = (0, effect_1.pipe)(effect_1.Effect.sync(() => github.context.payload), effect_1.Effect.tap(pullRequestPayload => effect_1.Effect.sync(() => {
             core.info(`repoName: ${repo} pull_number: ${context.payload.number} owner: ${owner} sha: ${pullRequestPayload.pull_request.head.sha}`);
-        })), effect_1.Effect.flatMap(() => actionConfig_1.ActionConfig), effect_1.Effect.map(config => [...config.excludeFilePatterns]));
+        })), effect_1.Effect.flatMap(() => actionConfig_1.ActionConfig), effect_1.Effect.map(currentConfig => [...currentConfig.excludeFilePatterns]));
         const a = excludeFilePatterns.pipe(effect_1.Effect.flatMap(filePattens => pullRequestService_1.PullRequestService.pipe(effect_1.Effect.flatMap(pullRequestService => pullRequestService.getFilesForReview(owner, repo, context.payload.number, filePattens)), effect_1.Effect.flatMap(files => effect_1.Effect.sync(() => files.filter(file => file.patch !== undefined))), effect_1.Effect.flatMap(files => effect_1.Effect.forEach(files, file => codeReviewService_1.CodeReviewService.pipe(effect_1.Effect.flatMap(codeReviewService => codeReviewService.codeReviewFor(file).pipe(effect_1.Effect.map(effect_1.Option.some), effect_1.Effect.catchTag('UnsupportedLanguageError', (error) => effect_1.Effect.sync(() => {
             core.info(`Skipping unsupported file for review: ${error.filename}`);
         }).pipe(effect_1.Effect.as(effect_1.Option.none()))))), effect_1.Effect.flatMap(reviewResult => effect_1.Option.match(reviewResult, {
@@ -206620,10 +206620,12 @@ class CodeReviewService extends effect_1.Context.Tag('@autoreviewer/CodeReviewSe
     static layer = effect_1.Layer.effect(this, effect_1.Effect.gen(function* () {
         const languageDetectionService = yield* languageDetectionService_1.LanguageDetectionService;
         const languageModel = yield* LanguageModel.LanguageModel;
-        const generateReview = (filename, lang, diff) => languageModel.generateText({
+        const generateReview = (filename, lang, diff) => languageModel
+            .generateText({
             prompt: makeReviewPrompt(lang, diff),
             toolChoice: 'none'
-        }).pipe((0, httpUtils_1.withResilience)({
+        })
+            .pipe((0, httpUtils_1.withResilience)({
             operation: 'CodeReviewService.generateReview',
             attemptTimeout: REVIEW_ATTEMPT_TIMEOUT,
             totalTimeout: REVIEW_TOTAL_TIMEOUT,
