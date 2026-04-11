@@ -3,86 +3,86 @@ import * as LanguageModel from '@effect/ai/LanguageModel'
 import * as Prompt from '@effect/ai/Prompt'
 import { PullRequestFile } from './pullRequestService'
 import parseDiff from 'parse-diff'
-import { LanguageDetectionService } from './languageDetectionService'
-import { exponentialBackoffWithJitter } from '../httpUtils'
-import { Effect, Context } from 'effect'
-import { NoSuchElementException } from 'effect/Cause'
+import { LanguageDetectionService, UnsupportedLanguageError } from './languageDetectionService'
+import { withResilience } from '../httpUtils'
+import { Context, Effect, Layer, Schema } from 'effect'
 
 export interface CodeReviewResult {
   text: string
 }
 
-export interface CodeReviewService {
-  codeReviewFor(
-    file: PullRequestFile
-  ): Effect.Effect<
-    CodeReviewResult,
-    NoSuchElementException | AiError.AiError,
-    LanguageDetectionService | LanguageModel.LanguageModel
-  >
-  codeReviewForChunks(
-    file: PullRequestFile
-  ): Effect.Effect<
-    CodeReviewResult[],
-    NoSuchElementException | AiError.AiError,
-    LanguageDetectionService | LanguageModel.LanguageModel
-  >
-}
+export class ReviewGenerationError extends Schema.TaggedError<ReviewGenerationError>()('ReviewGenerationError', {
+  filename: Schema.String,
+  error: Schema.Defect
+}) {}
 
-export const CodeReviewService = Context.GenericTag<CodeReviewService>('CodeReviewService')
+const REVIEW_ATTEMPT_TIMEOUT = '20 seconds'
+const REVIEW_TOTAL_TIMEOUT = '90 seconds'
 
-export class CodeReviewServiceImpl {
-  codeReviewFor = (
-    file: PullRequestFile
-  ): Effect.Effect<
-    CodeReviewResult,
-    NoSuchElementException | AiError.AiError,
-    LanguageDetectionService | LanguageModel.LanguageModel
-  > =>
-    LanguageDetectionService.pipe(
-      Effect.flatMap(languageDetectionService => languageDetectionService.detectLanguage(file.filename)),
-      Effect.flatMap(lang =>
-        Effect.retry(
-          LanguageModel.generateText({
-            prompt: this.makeReviewPrompt(lang, file.patch ?? ''),
-            toolChoice: 'none'
+export class CodeReviewService extends Context.Tag('@autoreviewer/CodeReviewService')<
+  CodeReviewService,
+  {
+    readonly codeReviewFor: (
+      file: PullRequestFile
+    ) => Effect.Effect<CodeReviewResult, UnsupportedLanguageError | ReviewGenerationError>
+    readonly codeReviewForChunks: (
+      file: PullRequestFile
+    ) => Effect.Effect<CodeReviewResult[], UnsupportedLanguageError | ReviewGenerationError>
+  }
+>() {
+  static readonly layer = Layer.effect(
+    this,
+    Effect.gen(function* () {
+      const languageDetectionService = yield* LanguageDetectionService
+      const languageModel = yield* LanguageModel.LanguageModel
+
+      const generateReview = (filename: string, lang: string, diff: string) =>
+        languageModel.generateText({
+          prompt: makeReviewPrompt(lang, diff),
+          toolChoice: 'none'
+        }).pipe(
+          withResilience({
+            operation: 'CodeReviewService.generateReview',
+            attemptTimeout: REVIEW_ATTEMPT_TIMEOUT,
+            totalTimeout: REVIEW_TOTAL_TIMEOUT,
+            onAttemptTimeout: () => new Error(`Timed out generating review for ${filename}`),
+            onTotalTimeout: () => new Error(`Exceeded review generation timeout for ${filename}`)
           }),
-          exponentialBackoffWithJitter(3)
-        )
-      ),
-      Effect.map(response => ({ text: response.text }))
-    )
-
-  codeReviewForChunks(
-    file: PullRequestFile
-  ): Effect.Effect<
-    CodeReviewResult[],
-    NoSuchElementException | AiError.AiError,
-    LanguageDetectionService | LanguageModel.LanguageModel
-  > {
-    const programmingLanguage = LanguageDetectionService.pipe(
-      Effect.flatMap(languageDetectionService => languageDetectionService.detectLanguage(file.filename))
-    )
-    const fileDiff = Effect.sync(() => parseDiff(file.patch ?? '')[0])
-
-    return Effect.all([programmingLanguage, fileDiff]).pipe(
-      Effect.flatMap(([lang, fd]) =>
-        Effect.all(
-          (fd?.chunks ?? []).map(chunk =>
-            Effect.retry(
-              LanguageModel.generateText({
-                prompt: this.makeReviewPrompt(lang, chunk.content),
-                toolChoice: 'none'
-              }),
-              exponentialBackoffWithJitter(3)
-            ).pipe(Effect.map(response => ({ text: response.text })))
+          Effect.mapError((error: AiError.AiError | Error) =>
+            ReviewGenerationError.make({
+              filename,
+              error
+            })
           )
         )
-      )
-    )
-  }
 
-  private makeReviewPrompt = (lang: string, diff: string) => [
+      const codeReviewFor = Effect.fn('CodeReviewService.codeReviewFor')(function* (file: PullRequestFile) {
+        const lang = yield* languageDetectionService.detectLanguage(file.filename)
+        const response = yield* generateReview(file.filename, lang, file.patch ?? '')
+
+        return { text: response.text }
+      })
+
+      const codeReviewForChunks = Effect.fn('CodeReviewService.codeReviewForChunks')(function* (
+        file: PullRequestFile
+      ) {
+        const lang = yield* languageDetectionService.detectLanguage(file.filename)
+        const parsedDiff = yield* Effect.sync(() => parseDiff(file.patch ?? '')[0])
+
+        return yield* Effect.forEach(parsedDiff?.chunks ?? [], chunk =>
+          generateReview(file.filename, lang, chunk.content).pipe(Effect.map(response => ({ text: response.text })))
+        )
+      })
+
+      return CodeReviewService.of({
+        codeReviewFor,
+        codeReviewForChunks
+      })
+    })
+  )
+}
+
+const makeReviewPrompt = (lang: string, diff: string) => [
     Prompt.systemMessage({
       content:
         "Act as an empathetic software engineer that's an expert in all programming languages, frameworks and software architecture."
@@ -103,4 +103,3 @@ ${diff}`
       ]
     })
   ]
-}

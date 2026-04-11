@@ -3,9 +3,8 @@ import { minimatch } from 'minimatch'
 import * as core from '@actions/core'
 import type { OctokitClient } from '../githubRuntime'
 import { ArrElement } from '../typeUtils'
-import { exponentialBackoffWithJitter } from '../httpUtils'
-import { Effect, Context } from 'effect'
-import { UnknownException } from 'effect/Cause'
+import { withResilience } from '../httpUtils'
+import { Context, Effect, Layer, Schema } from 'effect'
 
 export type PullRequestFileResponse = RestEndpointMethodTypes['pulls']['listFiles']['response']
 
@@ -14,47 +13,81 @@ type CreateReviewCommentRequest = RestEndpointMethodTypes['pulls']['createReview
 
 type CreateReviewRequest = RestEndpointMethodTypes['pulls']['createReview']['parameters']
 
-export interface PullRequestService {
-  getFilesForReview: (
-    owner: string,
-    repo: string,
-    pullNumber: number,
-    excludeFilePatterns: string[]
-  ) => Effect.Effect<PullRequestFile[], UnknownException, OctokitClient>
-  createReviewComment: (
-    requestOptions: CreateReviewCommentRequest
-  ) => Effect.Effect<void, unknown, OctokitClient>
-  createReview: (requestOptions: CreateReviewRequest) => Effect.Effect<void, unknown, OctokitClient>
+export class GitHubApiError extends Schema.TaggedError<GitHubApiError>()('GitHubApiError', {
+  operation: Schema.String,
+  error: Schema.Defect
+}) {}
+
+const GITHUB_ATTEMPT_TIMEOUT = '10 seconds'
+const GITHUB_TOTAL_TIMEOUT = '45 seconds'
+
+export class OctokitService extends Context.Tag('@autoreviewer/OctokitService')<OctokitService, OctokitClient>() {
+  static readonly layer = (octokit: OctokitClient) => Layer.succeed(this, octokit)
 }
 
-export const octokitTag = Context.GenericTag<OctokitClient>('octokit')
+export class PullRequestService extends Context.Tag('@autoreviewer/PullRequestService')<
+  PullRequestService,
+  {
+    readonly getFilesForReview: (
+      owner: string,
+      repo: string,
+      pullNumber: number,
+      excludeFilePatterns: string[]
+    ) => Effect.Effect<PullRequestFile[], GitHubApiError>
+    readonly createReviewComment: (
+      requestOptions: CreateReviewCommentRequest
+    ) => Effect.Effect<void, GitHubApiError>
+    readonly createReview: (requestOptions: CreateReviewRequest) => Effect.Effect<void, GitHubApiError>
+  }
+>() {
+  static readonly layer = Layer.effect(
+    this,
+    Effect.gen(function* () {
+      const octokit = yield* OctokitService
 
-export const PullRequestService = Context.GenericTag<PullRequestService>('PullRequestService')
-export class PullRequestServiceImpl {
-  getFilesForReview = (
-    owner: string,
-    repo: string,
-    pullNumber: number,
-    excludeFilePatterns: string[]
-  ): Effect.Effect<PullRequestFile[], UnknownException, OctokitClient> => {
-    const program = octokitTag.pipe(
-      Effect.flatMap(octokit =>
-        Effect.retry(
-          Effect.tryPromise(() =>
-            octokit.rest.pulls.listFiles({ owner, repo, pull_number: pullNumber, per_page: 100 })
-          ),
-          exponentialBackoffWithJitter(3)
+      const callOctokit = <A>(operation: string, request: () => Promise<A>) =>
+        Effect.tryPromise({
+          try: request,
+          catch: error =>
+            GitHubApiError.make({
+              operation,
+              error
+            })
+        }).pipe(
+          withResilience({
+            operation: `PullRequestService.${operation}`,
+            attemptTimeout: GITHUB_ATTEMPT_TIMEOUT,
+            totalTimeout: GITHUB_TOTAL_TIMEOUT,
+            onAttemptTimeout: () =>
+              GitHubApiError.make({
+                operation,
+                error: new Error(`Timed out during ${operation}`)
+              }),
+            onTotalTimeout: () =>
+              GitHubApiError.make({
+                operation,
+                error: new Error(`Exceeded overall timeout during ${operation}`)
+              })
+          })
         )
-      ),
-      Effect.tap(pullRequestFiles =>
-        Effect.sync(() =>
+
+      const getFilesForReview = Effect.fn('PullRequestService.getFilesForReview')(function* (
+        owner: string,
+        repo: string,
+        pullNumber: number,
+        excludeFilePatterns: string[]
+      ) {
+        const pullRequestFiles = yield* callOctokit('pulls.listFiles', () =>
+          octokit.rest.pulls.listFiles({ owner, repo, pull_number: pullNumber, per_page: 100 })
+        )
+
+        yield* Effect.sync(() => {
           core.info(
             `Original files for review ${pullRequestFiles.data.length}: ${pullRequestFiles.data.map(_ => _.filename)}`
           )
-        )
-      ),
-      Effect.flatMap(pullRequestFiles =>
-        Effect.sync(() =>
+        })
+
+        const filteredFiles = yield* Effect.sync(() =>
           pullRequestFiles.data.filter(file => {
             return (
               excludeFilePatterns.every(pattern => !minimatch(file.filename, pattern, { matchBase: true })) &&
@@ -62,37 +95,37 @@ export class PullRequestServiceImpl {
             )
           })
         )
-      ),
-      Effect.tap(filteredFiles =>
-        Effect.sync(() =>
+
+        yield* Effect.sync(() => {
           core.info(`Filtered files for review ${filteredFiles.length}: ${filteredFiles.map(_ => _.filename)}`)
-        )
-      )
-    )
+        })
 
-    return program
-  }
+        return filteredFiles
+      })
 
-  createReviewComment = (
-    requestOptions: CreateReviewCommentRequest
-  ): Effect.Effect<void, Error, OctokitClient> =>
-    octokitTag.pipe(
-      Effect.tap(() => core.debug(`Creating review comment: ${JSON.stringify(requestOptions)}`)),
-      Effect.flatMap(octokit =>
-        Effect.retry(
-          Effect.tryPromise(() => octokit.rest.pulls.createReviewComment(requestOptions)),
-          exponentialBackoffWithJitter(3)
-        )
-      )
-    )
+      const createReviewComment = Effect.fn('PullRequestService.createReviewComment')(function* (
+        requestOptions: CreateReviewCommentRequest
+      ) {
+        yield* Effect.sync(() => {
+          core.debug(`Creating review comment: ${JSON.stringify(requestOptions)}`)
+        })
 
-  createReview = (requestOptions: CreateReviewRequest): Effect.Effect<void, Error, OctokitClient> =>
-    octokitTag.pipe(
-      Effect.flatMap(octokit =>
-        Effect.retry(
-          Effect.tryPromise(() => octokit.rest.pulls.createReview(requestOptions)),
-          exponentialBackoffWithJitter(3)
+        yield* callOctokit('pulls.createReviewComment', () =>
+          octokit.rest.pulls.createReviewComment(requestOptions)
         )
-      )
-    )
+      })
+
+      const createReview = Effect.fn('PullRequestService.createReview')(function* (
+        requestOptions: CreateReviewRequest
+      ) {
+        yield* callOctokit('pulls.createReview', () => octokit.rest.pulls.createReview(requestOptions))
+      })
+
+      return PullRequestService.of({
+        getFilesForReview,
+        createReviewComment,
+        createReview
+      })
+    })
+  )
 }
