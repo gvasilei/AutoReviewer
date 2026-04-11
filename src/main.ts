@@ -1,6 +1,6 @@
 import { config } from 'dotenv'
 import * as core from '@actions/core'
-import type { PullRequestEvent } from '@octokit/webhooks-definitions/schema'
+import type { PullRequestEvent } from '@octokit/webhooks-types'
 
 import * as OpenAiClient from '@effect/ai-openai/OpenAiClient'
 import * as OpenAiLanguageModel from '@effect/ai-openai/OpenAiLanguageModel'
