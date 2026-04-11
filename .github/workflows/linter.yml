@@ -8,7 +8,9 @@ on:
 
 permissions:
   contents: read
+  issues: write
   packages: read
+  pull-requests: write
   statuses: write
 
 jobs:
