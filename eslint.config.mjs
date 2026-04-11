@@ -96,4 +96,10 @@ export default [
       "github/filenames-match-regex": ["warn", "^[a-z]+([A-Z][a-z0-9]+)*$"],
     },
   }),
+  {
+    files: ["**/*.test.ts"],
+    rules: {
+      "github/filenames-match-regex": "off",
+    },
+  },
 ]

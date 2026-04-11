@@ -5,9 +5,15 @@ import { CodeReviewService, ReviewGenerationError } from '../src/services/codeRe
 import { LanguageDetectionService, UnsupportedLanguageError } from '../src/services/languageDetectionService'
 import type { PullRequestFile } from '../src/services/pullRequestService'
 
+const makeGenerateTextResponse = (text: string): LanguageModel.GenerateTextResponse<Record<string, never>> =>
+  ({ text }) as unknown as LanguageModel.GenerateTextResponse<Record<string, never>>
+
+type PromptPart = { text: string }
+type PromptMessage = { role: string; content: string | PromptPart[] }
+
 describe('CodeReviewService', () => {
   it('uses the language model prompt and maps the response text', async () => {
-    const generateText = jest.fn(() => Effect.succeed({ text: 'Looks good overall.' } as any))
+    const generateText = jest.fn(() => Effect.succeed(makeGenerateTextResponse('Looks good overall.')))
 
     const languageModelLive = Layer.succeed(LanguageModel.LanguageModel, {
       generateText: generateText as LanguageModel.Service['generateText'],
@@ -33,22 +39,22 @@ describe('CodeReviewService', () => {
     expect(result).toEqual({ text: 'Looks good overall.' })
     expect(generateText).toHaveBeenCalledTimes(1)
 
-    const options = (generateText.mock.calls as unknown as Array<[unknown]>)[0][0] as {
-      prompt: Array<{ role: string; content: string | Array<{ text: string }> }>
+    const options = generateText.mock.calls[0]?.[0] as {
+      prompt: PromptMessage[]
       toolChoice: string
     }
 
     expect(options.toolChoice).toBe('none')
     expect(options.prompt[0]).toMatchObject({ role: 'system' })
     expect(options.prompt[1]).toMatchObject({ role: 'user' })
-    expect((options.prompt[1]?.content as Array<{ text: string }>)[0]?.text).toContain(
+    expect((options.prompt[1]?.content as PromptPart[])[0]?.text).toContain(
       'The programming language in the git diff is typescript.'
     )
-    expect((options.prompt[1]?.content as Array<{ text: string }>)[0]?.text).toContain(file.patch)
+    expect((options.prompt[1]?.content as PromptPart[])[0]?.text).toContain(file.patch)
   })
 
   it('fails with UnsupportedLanguageError for unknown file extensions', async () => {
-    const generateText = jest.fn(() => Effect.succeed({ text: 'Should not run' } as any))
+    const generateText = jest.fn(() => Effect.succeed(makeGenerateTextResponse('Should not run')))
 
     const languageModelLive = Layer.succeed(LanguageModel.LanguageModel, {
       generateText: generateText as LanguageModel.Service['generateText'],
@@ -74,16 +80,17 @@ describe('CodeReviewService', () => {
 
     expect(Either.isLeft(result)).toBe(true)
 
-    if (Either.isLeft(result)) {
-      expect(result.left).toBeInstanceOf(UnsupportedLanguageError)
-      expect(result.left.filename).toBe(file.filename)
+    if (Either.isRight(result)) {
+      throw new Error('Expected unsupported language review to fail')
     }
 
+    expect(result.left).toBeInstanceOf(UnsupportedLanguageError)
+    expect(result.left.filename).toBe(file.filename)
     expect(generateText).not.toHaveBeenCalled()
   })
 
   it('maps language model failures to ReviewGenerationError', async () => {
-    const generateText = jest.fn(() => Effect.fail(new Error('model unavailable') as any))
+    const generateText = jest.fn(() => Effect.fail(new Error('model unavailable')))
 
     const languageModelLive = Layer.succeed(LanguageModel.LanguageModel, {
       generateText: generateText as LanguageModel.Service['generateText'],
@@ -109,9 +116,11 @@ describe('CodeReviewService', () => {
 
     expect(Either.isLeft(result)).toBe(true)
 
-    if (Either.isLeft(result)) {
-      expect(result.left).toBeInstanceOf(ReviewGenerationError)
-      expect(result.left.filename).toBe(file.filename)
+    if (Either.isRight(result)) {
+      throw new Error('Expected review generation to fail')
     }
+
+    expect(result.left).toBeInstanceOf(ReviewGenerationError)
+    expect(result.left.filename).toBe(file.filename)
   }, 15000)
 })

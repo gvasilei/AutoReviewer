@@ -102,11 +102,12 @@ describe('PullRequestService', () => {
 
     expect(Either.isLeft(result)).toBe(true)
 
-    if (Either.isLeft(result)) {
-      expect(result.left).toBeInstanceOf(GitHubApiError)
-      expect(result.left.operation).toBe('pulls.listFiles')
+    if (Either.isRight(result)) {
+      throw new Error('Expected octokit failure to map to GitHubApiError')
     }
 
+    expect(result.left).toBeInstanceOf(GitHubApiError)
+    expect(result.left.operation).toBe('pulls.listFiles')
     expect(listFiles).toHaveBeenCalledTimes(4)
   }, 15000)
 })

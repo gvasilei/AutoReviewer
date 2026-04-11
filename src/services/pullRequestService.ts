@@ -1,4 +1,6 @@
-import type { RestEndpointMethodTypes } from '@octokit/plugin-rest-endpoint-methods' with { "resolution-mode": "import" }
+import type { RestEndpointMethodTypes } from '@octokit/plugin-rest-endpoint-methods' with {
+  'resolution-mode': 'import'
+}
 import { minimatch } from 'minimatch'
 import * as core from '@actions/core'
 import type { OctokitClient } from '../githubRuntime'
@@ -34,9 +36,7 @@ export class PullRequestService extends Context.Tag('@autoreviewer/PullRequestSe
       pullNumber: number,
       excludeFilePatterns: string[]
     ) => Effect.Effect<PullRequestFile[], GitHubApiError>
-    readonly createReviewComment: (
-      requestOptions: CreateReviewCommentRequest
-    ) => Effect.Effect<void, GitHubApiError>
+    readonly createReviewComment: (requestOptions: CreateReviewCommentRequest) => Effect.Effect<void, GitHubApiError>
     readonly createReview: (requestOptions: CreateReviewRequest) => Effect.Effect<void, GitHubApiError>
   }
 >() {
@@ -110,9 +110,7 @@ export class PullRequestService extends Context.Tag('@autoreviewer/PullRequestSe
           core.debug(`Creating review comment: ${JSON.stringify(requestOptions)}`)
         })
 
-        yield* callOctokit('pulls.createReviewComment', () =>
-          octokit.rest.pulls.createReviewComment(requestOptions)
-        )
+        yield* callOctokit('pulls.createReviewComment', () => octokit.rest.pulls.createReviewComment(requestOptions))
       })
 
       const createReview = Effect.fn('PullRequestService.createReview')(function* (

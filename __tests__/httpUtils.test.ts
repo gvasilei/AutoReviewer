@@ -19,9 +19,11 @@ describe('withResilience', () => {
 
     expect(Either.isLeft(result)).toBe(true)
 
-    if (Either.isLeft(result)) {
-      expect(result.left).toBeInstanceOf(Error)
-      expect(result.left.message).toBe('attempt timeout')
+    if (Either.isRight(result)) {
+      throw new Error('Expected hanging effect to time out')
     }
+
+    expect(result.left).toBeInstanceOf(Error)
+    expect(result.left.message).toBe('attempt timeout')
   })
 })

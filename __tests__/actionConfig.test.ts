@@ -2,7 +2,7 @@ import { expect } from '@jest/globals'
 import { ConfigProvider, Effect, Either, Redacted } from 'effect'
 import { ActionConfig } from '../src/actionConfig'
 
-const loadActionConfig = (entries: Array<[string, string]>) =>
+const loadActionConfig = (entries: [string, string][]) =>
   Effect.gen(function* () {
     return yield* ActionConfig
   }).pipe(Effect.provide(ActionConfig.layer), Effect.withConfigProvider(ConfigProvider.fromMap(new Map(entries))))
@@ -44,8 +44,10 @@ describe('ActionConfig', () => {
 
     expect(Either.isLeft(result)).toBe(true)
 
-    if (Either.isLeft(result)) {
-      expect(String(result.left)).toContain('MODEL_TEMPERATURE')
+    if (Either.isRight(result)) {
+      throw new Error('Expected invalid temperature configuration to fail')
     }
+
+    expect(String(result.left)).toContain('MODEL_TEMPERATURE')
   })
 })

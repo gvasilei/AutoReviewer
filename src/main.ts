@@ -54,7 +54,7 @@ export const run = async (): Promise<void> => {
           })
         ),
         Effect.flatMap(() => ActionConfig),
-        Effect.map(config => [...config.excludeFilePatterns])
+        Effect.map(currentConfig => [...currentConfig.excludeFilePatterns])
       )
 
       const a = excludeFilePatterns.pipe(

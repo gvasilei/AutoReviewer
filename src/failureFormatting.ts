@@ -3,7 +3,7 @@ import { ReviewGenerationError } from './services/codeReviewService'
 import { UnsupportedLanguageError } from './services/languageDetectionService'
 import { GitHubApiError } from './services/pullRequestService'
 
-const formatPath = (path: ReadonlyArray<string>): string => (path.length > 0 ? path.join('.') : '<root>')
+const formatPath = (path: readonly string[]): string => (path.length > 0 ? path.join('.') : '<root>')
 
 const formatUnknownError = (error: unknown): string => {
   if (typeof error === 'string') {
