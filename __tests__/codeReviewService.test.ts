@@ -1,4 +1,3 @@
-import { expect, jest } from '@jest/globals'
 import * as LanguageModel from '@effect/ai/LanguageModel'
 import { Effect, Either, Layer } from 'effect'
 import { CodeReviewService, ReviewGenerationError } from '../src/services/codeReviewService'

@@ -1,4 +1,3 @@
-import { expect } from '@jest/globals'
 import { ConfigProvider, Effect, Either, Redacted } from 'effect'
 import { ActionConfig } from '../src/actionConfig'
 
