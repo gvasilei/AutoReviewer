@@ -1,13 +1,26 @@
-import { Option, Context, Effect, Layer } from 'effect'
+import { Context, Effect, Layer, Schema } from 'effect'
 
 const makeLanguageDetectionService = Effect.sync(() => {
   return {
-    detectLanguage: (filename: string): Option.Option<Language> => {
+    detectLanguage: (filename: string): Effect.Effect<Language, UnsupportedLanguageError> => {
       const extension = getFileExtension(filename)
-      return Option.fromNullable(extensionToLanguageMap[extension as LanguageKey])
+      const language = extensionToLanguageMap[extension as LanguageKey]
+
+      return language
+        ? Effect.succeed(language)
+        : UnsupportedLanguageError.make({
+            filename
+          })
     }
   }
 })
+
+export class UnsupportedLanguageError extends Schema.TaggedError<UnsupportedLanguageError>()(
+  'UnsupportedLanguageError',
+  {
+    filename: Schema.String
+  }
+) {}
 
 export class LanguageDetectionService extends Context.Tag('LanguageDetectionService')<
   LanguageDetectionService,

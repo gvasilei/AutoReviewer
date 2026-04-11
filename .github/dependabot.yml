@@ -5,8 +5,9 @@ updates:
     schedule:
       interval: weekly
     groups:
-      actions-minor:
+      actions:
         update-types:
+          - major
           - minor
           - patch
 

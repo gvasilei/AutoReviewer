@@ -1,39 +1,50 @@
 import { config } from 'dotenv'
 import * as core from '@actions/core'
-import * as github from '@actions/github'
-import type { PullRequestEvent } from '@octokit/webhooks-definitions/schema'
 
-import { ChatOpenAI } from 'langchain/chat_models/openai'
-import { BaseChatModel } from 'langchain/dist/chat_models/base'
-import { CodeReviewService, CodeReviewServiceImpl } from './services/codeReviewService'
-import { PullRequestService, PullRequestServiceImpl, octokitTag } from './services/pullRequestService'
-import { LanguageDetectionService } from './services/languageDetectionService'
+import * as OpenAiClient from '@effect/ai-openai/OpenAiClient'
+import * as OpenAiLanguageModel from '@effect/ai-openai/OpenAiLanguageModel'
+import * as NodeHttpClient from '@effect/platform-node/NodeHttpClient'
+import { ActionConfig, type ActionConfigData } from './actionConfig'
+import { formatFailureCause } from './failureFormatting'
+import type { OctokitClient } from './githubRuntime'
+import { loadGitHubRuntime } from './githubRuntime'
+import { CodeReviewService } from './services/codeReviewService'
+import { LanguageDetectionService, UnsupportedLanguageError } from './services/languageDetectionService'
+import { OctokitService, PullRequestService } from './services/pullRequestService'
 
-import { Effect, Layer, Match, pipe, Exit } from 'effect'
-
-config()
+import { ConfigProvider, Effect, Exit, Layer, Match, Option, Redacted, pipe } from 'effect'
 
 export const run = async (): Promise<void> => {
-  const openAIApiKey = core.getInput('openai_api_key')
-  const githubToken = core.getInput('github_token')
-  const modelName = core.getInput('model_name')
-  const temperature = parseInt(core.getInput('model_temperature'))
+  const actionConfigResult = await Effect.sync(() => {
+    config()
+  }).pipe(
+    Effect.flatMap(() => ActionConfig),
+    Effect.provide(ActionConfig.layer),
+    Effect.withConfigProvider(ConfigProvider.nested(ConfigProvider.fromEnv(), 'INPUT')),
+    Effect.runPromiseExit
+  )
+
+  if (Exit.isFailure(actionConfigResult)) {
+    core.setFailed(formatFailureCause(actionConfigResult.cause))
+    return
+  }
+
+  const actionConfig = actionConfigResult.value
+
+  const github = await loadGitHubRuntime()
 
   const context = github.context
   const { owner, repo } = context.repo
 
-  const model: BaseChatModel = new ChatOpenAI({
-    temperature,
-    openAIApiKey,
-    modelName
+  const MainLive = initializeServices({
+    actionConfig,
+    octokit: github.getOctokit(Redacted.value(actionConfig.githubToken))
   })
-
-  const MainLive = initializeServices(model, githubToken)
 
   const program = Match.value(context.eventName).pipe(
     Match.when('pull_request', () => {
       const excludeFilePatterns = pipe(
-        Effect.sync(() => github.context.payload as PullRequestEvent),
+        Effect.sync(() => github.context.payload),
         Effect.tap(pullRequestPayload =>
           Effect.sync(() => {
             core.info(
@@ -41,12 +52,8 @@ export const run = async (): Promise<void> => {
             )
           })
         ),
-        Effect.map(() =>
-          core
-            .getInput('exclude_files')
-            .split(',')
-            .map(_ => _.trim())
-        )
+        Effect.flatMap(() => ActionConfig),
+        Effect.map(currentConfig => [...currentConfig.excludeFilePatterns])
       )
 
       const a = excludeFilePatterns.pipe(
@@ -59,21 +66,34 @@ export const run = async (): Promise<void> => {
             Effect.flatMap(files =>
               Effect.forEach(files, file =>
                 CodeReviewService.pipe(
-                  Effect.flatMap(codeReviewService => codeReviewService.codeReviewFor(file)),
-                  Effect.flatMap(res =>
-                    PullRequestService.pipe(
-                      Effect.flatMap(pullRequestService =>
-                        pullRequestService.createReviewComment({
-                          repo,
-                          owner,
-                          pull_number: context.payload.number,
-                          commit_id: context.payload.pull_request?.head.sha,
-                          path: file.filename,
-                          body: res.text,
-                          subject_type: 'file'
-                        })
+                  Effect.flatMap(codeReviewService =>
+                    codeReviewService.codeReviewFor(file).pipe(
+                      Effect.map(Option.some),
+                      Effect.catchTag('UnsupportedLanguageError', (error: UnsupportedLanguageError) =>
+                        Effect.sync(() => {
+                          core.info(`Skipping unsupported file for review: ${error.filename}`)
+                        }).pipe(Effect.as(Option.none()))
                       )
                     )
+                  ),
+                  Effect.flatMap(reviewResult =>
+                    Option.match(reviewResult, {
+                      onNone: () => Effect.void,
+                      onSome: res =>
+                        PullRequestService.pipe(
+                          Effect.flatMap(pullRequestService =>
+                            pullRequestService.createReviewComment({
+                              repo,
+                              owner,
+                              pull_number: context.payload.number,
+                              commit_id: context.payload.pull_request?.head.sha,
+                              path: file.filename,
+                              body: res.text,
+                              subject_type: 'file'
+                            })
+                          )
+                        )
+                    })
                   )
                 )
               )
@@ -96,30 +116,30 @@ export const run = async (): Promise<void> => {
   const result = await Effect.runPromiseExit(runnable)
 
   if (Exit.isFailure(result)) {
-    core.setFailed(result.cause.toString())
+    core.setFailed(formatFailureCause(result.cause))
   }
 }
 
-const initializeServices = (model: BaseChatModel, githubToken: string) => {
-  const CodeReviewServiceLive = Layer.effect(
-    CodeReviewService,
-    Effect.map(LanguageDetectionService, _ => CodeReviewService.of(new CodeReviewServiceImpl(model)))
+const initializeServices = ({ actionConfig, octokit }: { actionConfig: ActionConfigData; octokit: OctokitClient }) => {
+  const octokitLive = OctokitService.layer(octokit)
+  const actionConfigLive = Layer.succeed(ActionConfig, actionConfig)
+
+  const OpenAiClientLive = OpenAiClient.layer({
+    apiKey: actionConfig.openAIApiKey
+  }).pipe(Layer.provide(NodeHttpClient.layerUndici))
+
+  const LanguageModelLive = OpenAiLanguageModel.model(actionConfig.modelName, {
+    temperature: actionConfig.modelTemperature
+  }).pipe(Layer.provide(OpenAiClientLive))
+
+  const CodeReviewServiceLive = CodeReviewService.layer.pipe(
+    Layer.provideMerge(LanguageDetectionService.Live),
+    Layer.provideMerge(LanguageModelLive)
   )
 
-  const octokitLive = Layer.succeed(octokitTag, github.getOctokit(githubToken))
+  const PullRequestServiceLive = PullRequestService.layer.pipe(Layer.provide(octokitLive))
 
-  const PullRequestServiceLive = Layer.effect(
-    PullRequestService,
-    Effect.map(octokitTag, _ => PullRequestService.of(new PullRequestServiceImpl()))
-  )
-
-  const mainLive = CodeReviewServiceLive.pipe(
-    Layer.merge(PullRequestServiceLive),
-    Layer.merge(LanguageDetectionService.Live),
-    Layer.merge(octokitLive),
-    Layer.provide(LanguageDetectionService.Live),
-    Layer.provide(octokitLive)
-  )
+  const mainLive = CodeReviewServiceLive.pipe(Layer.merge(PullRequestServiceLive), Layer.merge(actionConfigLive))
 
   return mainLive
 }
