@@ -3,13 +3,14 @@ import * as core from '@actions/core'
 import * as github from '@actions/github'
 import type { PullRequestEvent } from '@octokit/webhooks-definitions/schema'
 
-import { ChatOpenAI } from 'langchain/chat_models/openai'
-import { BaseChatModel } from 'langchain/dist/chat_models/base'
+import * as OpenAiClient from '@effect/ai-openai/OpenAiClient'
+import * as OpenAiLanguageModel from '@effect/ai-openai/OpenAiLanguageModel'
+import * as NodeHttpClient from '@effect/platform-node/NodeHttpClient'
 import { CodeReviewService, CodeReviewServiceImpl } from './services/codeReviewService'
 import { PullRequestService, PullRequestServiceImpl, octokitTag } from './services/pullRequestService'
 import { LanguageDetectionService } from './services/languageDetectionService'
 
-import { Effect, Layer, Match, pipe, Exit } from 'effect'
+import { Effect, Exit, Layer, Match, Redacted, pipe } from 'effect'
 
 config()
 
@@ -17,18 +18,17 @@ export const run = async (): Promise<void> => {
   const openAIApiKey = core.getInput('openai_api_key')
   const githubToken = core.getInput('github_token')
   const modelName = core.getInput('model_name')
-  const temperature = parseInt(core.getInput('model_temperature'))
+  const temperature = Number(core.getInput('model_temperature'))
 
   const context = github.context
   const { owner, repo } = context.repo
 
-  const model: BaseChatModel = new ChatOpenAI({
-    temperature,
+  const MainLive = initializeServices({
+    githubToken,
+    modelName,
     openAIApiKey,
-    modelName
+    temperature
   })
-
-  const MainLive = initializeServices(model, githubToken)
 
   const program = Match.value(context.eventName).pipe(
     Match.when('pull_request', () => {
@@ -100,25 +100,42 @@ export const run = async (): Promise<void> => {
   }
 }
 
-const initializeServices = (model: BaseChatModel, githubToken: string) => {
-  const CodeReviewServiceLive = Layer.effect(
+const initializeServices = ({
+  githubToken,
+  modelName,
+  openAIApiKey,
+  temperature
+}: {
+  githubToken: string
+  modelName: string
+  openAIApiKey: string
+  temperature: number
+}) => {
+  const CodeReviewServiceLive = Layer.succeed(
     CodeReviewService,
-    Effect.map(LanguageDetectionService, () => CodeReviewService.of(new CodeReviewServiceImpl(model)))
+    CodeReviewService.of(new CodeReviewServiceImpl())
   )
 
   const octokitLive = Layer.succeed(octokitTag, github.getOctokit(githubToken))
 
-  const PullRequestServiceLive = Layer.effect(
+  const PullRequestServiceLive = Layer.succeed(
     PullRequestService,
-    Effect.map(octokitTag, () => PullRequestService.of(new PullRequestServiceImpl()))
+    PullRequestService.of(new PullRequestServiceImpl())
   )
+
+  const OpenAiClientLive = OpenAiClient.layer({
+    apiKey: Redacted.make(openAIApiKey)
+  }).pipe(Layer.provide(NodeHttpClient.layerUndici))
+
+  const LanguageModelLive = OpenAiLanguageModel.model(modelName, {
+    temperature
+  }).pipe(Layer.provide(OpenAiClientLive))
 
   const mainLive = CodeReviewServiceLive.pipe(
     Layer.merge(PullRequestServiceLive),
     Layer.merge(LanguageDetectionService.Live),
     Layer.merge(octokitLive),
-    Layer.provide(LanguageDetectionService.Live),
-    Layer.provide(octokitLive)
+    Layer.merge(LanguageModelLive)
   )
 
   return mainLive
