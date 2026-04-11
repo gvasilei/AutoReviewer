@@ -9,10 +9,15 @@ globals:
 
 ignorePatterns:
   - '!.*'
+  - 'dist/**'
+  - 'lib/**'
+  - 'node_modules/**'
   - '**/node_modules/.*'
   - '**/dist/.*'
   - 'coverage/**'
   - '**/coverage/**'
+  - 'eslint.config.mjs'
+  - 'jest.config.js'
   - '*.json'
 
 parser: '@typescript-eslint/parser'
