@@ -206727,8 +206727,8 @@ class ReviewGenerationError extends effect_1.Schema.TaggedError()('ReviewGenerat
 }) {
 }
 exports.ReviewGenerationError = ReviewGenerationError;
-const REVIEW_ATTEMPT_TIMEOUT = '20 seconds';
-const REVIEW_TOTAL_TIMEOUT = '90 seconds';
+const REVIEW_ATTEMPT_TIMEOUT = '45 seconds';
+const REVIEW_TOTAL_TIMEOUT = '3 minutes';
 class CodeReviewService extends effect_1.Context.Tag('@autoreviewer/CodeReviewService')() {
     static layer = effect_1.Layer.effect(this, effect_1.Effect.gen(function* () {
         const languageDetectionService = yield* languageDetectionService_1.LanguageDetectionService;

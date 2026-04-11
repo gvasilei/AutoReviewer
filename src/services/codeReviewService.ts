@@ -16,8 +16,8 @@ export class ReviewGenerationError extends Schema.TaggedError<ReviewGenerationEr
   error: Schema.Defect
 }) {}
 
-const REVIEW_ATTEMPT_TIMEOUT = '20 seconds'
-const REVIEW_TOTAL_TIMEOUT = '90 seconds'
+const REVIEW_ATTEMPT_TIMEOUT = '45 seconds'
+const REVIEW_TOTAL_TIMEOUT = '3 minutes'
 
 export class CodeReviewService extends Context.Tag('@autoreviewer/CodeReviewService')<
   CodeReviewService,
