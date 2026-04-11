@@ -31,6 +31,12 @@ export const run = async (): Promise<void> => {
 
   const actionConfig = actionConfigResult.value
 
+  core.info(
+    `Loaded exclude file patterns (${actionConfig.excludeFilePatterns.length}): ${
+      actionConfig.excludeFilePatterns.length > 0 ? actionConfig.excludeFilePatterns.join(', ') : '<none>'
+    }`
+  )
+
   const github = await loadGitHubRuntime()
 
   const context = github.context

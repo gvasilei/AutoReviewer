@@ -206616,6 +206616,7 @@ const run = async () => {
         return;
     }
     const actionConfig = actionConfigResult.value;
+    core.info(`Loaded exclude file patterns (${actionConfig.excludeFilePatterns.length}): ${actionConfig.excludeFilePatterns.length > 0 ? actionConfig.excludeFilePatterns.join(', ') : '<none>'}`);
     const github = await (0, githubRuntime_1.loadGitHubRuntime)();
     const context = github.context;
     const { owner, repo } = context.repo;
@@ -206932,6 +206933,8 @@ class GitHubApiError extends effect_1.Schema.TaggedError()('GitHubApiError', {
 exports.GitHubApiError = GitHubApiError;
 const GITHUB_ATTEMPT_TIMEOUT = '10 seconds';
 const GITHUB_TOTAL_TIMEOUT = '45 seconds';
+const REVIEWABLE_FILE_STATUSES = ['modified', 'added', 'changed'];
+const isReviewableStatus = (status) => REVIEWABLE_FILE_STATUSES.includes(status);
 class OctokitService extends effect_1.Context.Tag('@autoreviewer/OctokitService')() {
     static layer = (octokit) => effect_1.Layer.succeed(this, octokit);
 }
@@ -206963,10 +206966,34 @@ class PullRequestService extends effect_1.Context.Tag('@autoreviewer/PullRequest
             yield* effect_1.Effect.sync(() => {
                 core.info(`Original files for review ${pullRequestFiles.data.length}: ${pullRequestFiles.data.map(_ => _.filename)}`);
             });
-            const filteredFiles = yield* effect_1.Effect.sync(() => pullRequestFiles.data.filter(file => {
-                return (excludeFilePatterns.every(pattern => !(0, minimatch_1.minimatch)(file.filename, pattern, { matchBase: true })) &&
-                    (file.status === 'modified' || file.status === 'added' || file.status === 'changed'));
+            const fileReviewDecisions = yield* effect_1.Effect.sync(() => pullRequestFiles.data.map(file => {
+                const matchedExcludePatterns = excludeFilePatterns.filter(pattern => (0, minimatch_1.minimatch)(file.filename, pattern, { matchBase: true }));
+                const reviewableStatus = isReviewableStatus(file.status);
+                const included = matchedExcludePatterns.length === 0 && reviewableStatus;
+                return {
+                    file,
+                    included,
+                    matchedExcludePatterns,
+                    reviewableStatus
+                };
             }));
+            yield* effect_1.Effect.sync(() => {
+                core.info(`Evaluating ${fileReviewDecisions.length} files against exclude patterns: ${excludeFilePatterns.length > 0 ? excludeFilePatterns.join(', ') : '<none>'}`);
+                fileReviewDecisions.forEach(({ file, included, matchedExcludePatterns, reviewableStatus }) => {
+                    if (!reviewableStatus) {
+                        core.info(`Skipping ${file.filename}: unsupported file status "${file.status}"`);
+                        return;
+                    }
+                    if (matchedExcludePatterns.length > 0) {
+                        core.info(`Skipping ${file.filename}: matched exclude pattern(s) ${matchedExcludePatterns.join(', ')}`);
+                        return;
+                    }
+                    if (included) {
+                        core.info(`Including ${file.filename} for review`);
+                    }
+                });
+            });
+            const filteredFiles = yield* effect_1.Effect.sync(() => fileReviewDecisions.filter(({ included }) => included).map(({ file }) => file));
             yield* effect_1.Effect.sync(() => {
                 core.info(`Filtered files for review ${filteredFiles.length}: ${filteredFiles.map(_ => _.filename)}`);
             });
